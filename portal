@@ -1,1 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Learning Resources Portal</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
 
+  <!-- Firebase compat SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+  <style>
+    body { margin:0; font-family:system-ui; background:#f6f7f9; }
+    body.dark { background:#0f172a; color:#e5e7eb; }
+    .card { max-width:420px; margin:80px auto; padding:20px; border-radius:12px; background:white; }
+    body.dark .card { background:#020617; }
+    input,button { width:100%; padding:10px; margin-top:10px; }
+    button { cursor:pointer; }
+    nav { padding:12px; background:#2563eb; color:white; }
+    .hidden { display:none; }
+  </style>
+</head>
+
+<body>
+  <!-- LOGIN -->
+  <div id="login" class="card">
+    <h2>Sign in</h2>
+    <input id="email" type="email" placeholder="Email" />
+    <input id="password" type="password" placeholder="Password" />
+    <button onclick="login()">Sign in</button>
+    <p id="loginMsg"></p>
+  </div>
+
+  <!-- APP -->
+  <div id="app" class="hidden">
+    <nav>
+      <span id="roleBadge"></span>
+      <button onclick="logout()" style="float:right">Sign out</button>
+    </nav>
+
+    <div class="card">
+      <h3>Welcome</h3>
+      <p id="userInfo"></p>
+
+      <h4>Theme</h4>
+      <button onclick="setTheme('light')">Light</button>
+      <button onclick="setTheme('dark')">Dark</button>
+    </div>
+  </div>
+
+<script>
+/* =========================
+   FIREBASE CONFIG
+========================= */
+const firebaseConfig = {
+  apiKey: "AIzaSyCBj78TuU8hviaYMILXkXIzNtU8yIgk39c",
+  authDomain: "learning-resources-2026.firebaseapp.com",
+  projectId: "learning-resources-2026",
+  storageBucket: "learning-resources-2026.firebasestorage.app",
+  messagingSenderId: "67701812368",
+  appId: "1:67701812368:web:d6ad7089316cdc66347c15"
+};
+
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+
+/* Persist login */
+auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+
+/* =========================
+   AUTH
+========================= */
+async function login(){
+  const email = email.value.trim();
+  const password = password.value;
+  try{
+    await auth.signInWithEmailAndPassword(email,password);
+  }catch(e){
+    loginMsg.textContent = e.message;
+  }
+}
+
+function logout(){
+  auth.signOut();
+}
+
+/* =========================
+   THEME
+========================= */
+async function setTheme(theme){
+  document.body.classList.toggle("dark", theme==="dark");
+  if(auth.currentUser){
+    await db.collection("settings").doc(auth.currentUser.uid).set({
+      theme
+    },{merge:true});
+  }
+}
+
+/* =========================
+   AUTH STATE
+========================= */
+auth.onAuthStateChanged(async user=>{
+  if(!user){
+    login.classList.remove("hidden");
+    app.classList.add("hidden");
+    return;
+  }
+
+  login.classList.add("hidden");
+  app.classList.remove("hidden");
+
+  // Load user doc
+  const uref = db.collection("users").doc(user.uid);
+  let snap = await uref.get();
+  if(!snap.exists){
+    await uref.set({
+      role:"member",
+      disabled:false,
+      banned:false,
+      warnings:0
+    });
+    snap = await uref.get();
+  }
+
+  const u = snap.data();
+  if(u.disabled || u.banned){
+    alert("Account restricted");
+    return logout();
+  }
+
+  roleBadge.textContent = `Role: ${u.role}`;
+  userInfo.textContent = user.email;
+
+  // Load settings
+  const sref = db.collection("settings").doc(user.uid);
+  const ssnap = await sref.get();
+  if(ssnap.exists && ssnap.data().theme==="dark"){
+    document.body.classList.add("dark");
+  }
+});
+</script>
+</body>
+</html>
