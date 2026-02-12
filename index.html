@@ -2,144 +2,2041 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Learning Resources Portal</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Personal Learning Resources Portal</title>
 
-  <!-- Firebase compat SDKs -->
+  <!-- Firebase compat SDKs (no build tools) -->
+  <!--
+    We explicitly load the compat versions of the Firebase SDK to avoid the
+    need for bundling or modern tooling. These scripts are served by
+    Google and safe to embed directly via <script> tags.  Versions are
+    pinned to avoid unexpected breaking changes on the free tier.
+  -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 
+  <!--
+    Basic styles for the portal.  Colours are defined as CSS variables so
+    that switching between light and dark mode is simply a matter of
+    toggling the [data-theme="dark"] attribute on the <html> element.
+    These variables are referenced throughout the CSS for background,
+    text, border, and accent colours.
+  -->
   <style>
-    body { margin:0; font-family:system-ui; background:#f6f7f9; }
-    body.dark { background:#0f172a; color:#e5e7eb; }
-    .card { max-width:420px; margin:80px auto; padding:20px; border-radius:12px; background:white; }
-    body.dark .card { background:#020617; }
-    input,button { width:100%; padding:10px; margin-top:10px; }
-    button { cursor:pointer; }
-    nav { padding:12px; background:#2563eb; color:white; }
-    .hidden { display:none; }
+    :root{
+      --bg:#f6f7f9;
+      --card:#ffffff;
+      --text:#111827;
+      --muted:#6b7280;
+      --border:#e5e7eb;
+      --accent:#2563eb;
+
+      --nav:#ffffff;
+      --shadow: 0 8px 25px rgba(17,24,39,.06);
+      --radius:14px;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+    }
+
+    /* Dark mode overrides applied when data-theme="dark" is present. */
+    html[data-theme="dark"]{
+      --bg:#0b1220;
+      --card:#0f172a;
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+      --border:#1f2a44;
+      --accent:#60a5fa;
+      --nav:#0f172a;
+      --shadow: 0 10px 30px rgba(0,0,0,.35);
+    }
+
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family:var(--sans);
+      background:var(--bg);
+      color:var(--text);
+    }
+
+    a{color:var(--accent); text-decoration:none}
+    a:hover{text-decoration:underline}
+
+    .wrap{max-width:1100px; margin:0 auto; padding:18px;}
+    .topbar{
+      position:sticky; top:0; z-index:30;
+      background:var(--nav);
+      border-bottom:1px solid var(--border);
+      backdrop-filter:saturate(180%) blur(10px);
+    }
+
+    .nav{
+      display:flex; gap:10px; align-items:center; justify-content:space-between;
+      padding:10px 18px;
+      max-width:1100px; margin:0 auto;
+    }
+    .brand{
+      display:flex; align-items:center; gap:10px;
+      font-weight:750;
+      letter-spacing:.2px;
+    }
+    .badge{
+      font-family:var(--mono);
+      font-size:12px;
+      padding:3px 8px;
+      border:1px solid var(--border);
+      border-radius:999px;
+      color:var(--muted);
+    }
+
+    .navlinks{display:flex; flex-wrap:wrap; gap:8px; align-items:center}
+    .tab{
+      border:1px solid var(--border);
+      background:transparent;
+      color:var(--text);
+      padding:8px 12px;
+      border-radius:999px;
+      cursor:pointer;
+      font-weight:600;
+      font-size:13px;
+    }
+    .tab.active{
+      background:rgba(37,99,235,.12);
+      border-color:rgba(37,99,235,.35);
+      color:var(--text);
+    }
+    .tab:disabled{
+      opacity:.45; cursor:not-allowed;
+    }
+
+    .right{display:flex; align-items:center; gap:10px}
+    .userpill{
+      display:flex; align-items:center; gap:8px;
+      border:1px solid var(--border);
+      padding:6px 10px;
+      border-radius:999px;
+      font-size:13px;
+      color:var(--muted);
+    }
+    .btn{
+      border:1px solid var(--border);
+      background:var(--card);
+      color:var(--text);
+      padding:8px 12px;
+      border-radius:10px;
+      cursor:pointer;
+      font-weight:650;
+    }
+    .btn.primary{
+      border-color:rgba(37,99,235,.45);
+      background:rgba(37,99,235,.12);
+    }
+    .btn.danger{
+      border-color:rgba(239,68,68,.45);
+      background:rgba(239,68,68,.10);
+    }
+
+    .grid{
+      display:grid;
+      grid-template-columns: 320px 1fr;
+      gap:14px;
+      margin-top:14px;
+    }
+    @media (max-width: 920px){
+      .grid{grid-template-columns:1fr}
+    }
+
+    .card{
+      background:var(--card);
+      border:1px solid var(--border);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+      padding:14px;
+    }
+    .card h2, .card h3{margin:0 0 10px 0}
+    .muted{color:var(--muted)}
+    .small{font-size:12px}
+
+    .input{
+      width:100%;
+      padding:10px 12px;
+      border-radius:10px;
+      border:1px solid var(--border);
+      background:transparent;
+      color:var(--text);
+      outline:none;
+    }
+
+    .row{display:flex; gap:10px}
+    .row > *{flex:1}
+    .divider{height:1px; background:var(--border); margin:12px 0}
+
+    .views > section{display:none}
+    .views > section.active{display:block}
+
+    .list{
+      display:flex; flex-direction:column; gap:8px;
+    }
+    .item{
+      border:1px solid var(--border);
+      border-radius:12px;
+      padding:10px 12px;
+      background:transparent;
+      cursor:pointer;
+    }
+    .item:hover{border-color:rgba(37,99,235,.35)}
+    .item .title{font-weight:700}
+    .item .desc{color:var(--muted); font-size:12px; margin-top:2px}
+
+    .pill{
+      display:inline-block;
+      border:1px solid var(--border);
+      border-radius:999px;
+      padding:3px 8px;
+      font-size:12px;
+      color:var(--muted);
+      margin-left:8px;
+      font-family:var(--mono);
+    }
+
+    .chatbox{
+      height:340px;
+      overflow:auto;
+      border:1px solid var(--border);
+      border-radius:12px;
+      padding:10px;
+      background:transparent;
+    }
+    .msg{padding:8px 10px; border-radius:10px; border:1px solid var(--border); margin-bottom:8px}
+    .msg .meta{font-size:12px; color:var(--muted); display:flex; justify-content:space-between; gap:10px}
+    .msg .text{margin-top:6px; white-space:pre-wrap}
+
+    footer{
+      margin:22px 0 40px;
+      text-align:center;
+      color:var(--muted);
+      font-size:12px;
+    }
+    footer a{color:var(--muted)}
   </style>
 </head>
 
 <body>
-  <!-- LOGIN -->
-  <div id="login" class="card">
-    <h2>Sign in</h2>
-    <input id="email" type="email" placeholder="Email" />
-    <input id="password" type="password" placeholder="Password" />
-    <button onclick="login()">Sign in</button>
-    <p id="loginMsg"></p>
-  </div>
+  <!-- Top navigation bar containing the brand, tabs and user sign‑out button -->
+  <div class="topbar" id="topbar" style="display:none;">
+    <div class="nav">
+      <div class="brand">
+        <span>Learning Portal</span>
+        <span class="badge" id="roleBadge">signed out</span>
+      </div>
 
-  <!-- APP -->
-  <div id="app" class="hidden">
-    <nav>
-      <span id="roleBadge"></span>
-      <button onclick="logout()" style="float:right">Sign out</button>
-    </nav>
+      <div class="navlinks">
+        <button class="tab" data-view="homeView" id="tabHome">Home</button>
+        <button class="tab" data-view="resourcesView" id="tabResources">Study Resources</button>
+        <button class="tab" data-view="utilitiesView" id="tabUtilities">Utilities</button>
+        <button class="tab" data-view="memberChatView" id="tabMemberChat">Member Chat</button>
+        <button class="tab" data-view="staffChatView" id="tabStaffChat">Staff Chat</button>
+        <button class="tab" data-view="staffListView" id="tabStaffList">Staff List</button>
+        <button class="tab" data-view="calendarView" id="tabCalendar">District Calendar</button>
+        <button class="tab" data-view="adminView" id="tabAdmin">Admin</button>
+        <button class="tab" data-view="settingsView" id="tabSettings">Settings</button>
+      </div>
 
-    <div class="card">
-      <h3>Welcome</h3>
-      <p id="userInfo"></p>
-
-      <h4>Theme</h4>
-      <button onclick="setTheme('light')">Light</button>
-      <button onclick="setTheme('dark')">Dark</button>
+      <div class="right">
+        <div class="userpill">
+          <span id="userName">Guest</span>
+          <span class="pill" id="userEmail">—</span>
+        </div>
+        <button class="btn" id="btnSignOut" style="display:none;">Sign out</button>
+      </div>
     </div>
   </div>
 
-<script>
-/* =========================
-   FIREBASE CONFIG
-========================= */
-const firebaseConfig = {
-  apiKey: "AIzaSyCBj78TuU8hviaYMILXkXIzNtU8yIgk39c",
-  authDomain: "learning-resources-2026.firebaseapp.com",
-  projectId: "learning-resources-2026",
-  storageBucket: "learning-resources-2026.firebasestorage.app",
-  messagingSenderId: "67701812368",
-  appId: "1:67701812368:web:d6ad7089316cdc66347c15"
-};
+  <div class="wrap">
 
-firebase.initializeApp(firebaseConfig);
-const auth = firebase.auth();
-const db = firebase.firestore();
+    <!-- Auth Gate: shown when the user is signed out -->
+    <div class="card" id="authCard">
+      <h2>Sign in</h2>
+      <p class="muted">Email/password login (Firebase Auth). Accounts are created by an administrator.</p>
+      <div class="row">
+        <div>
+          <label class="small muted">Email</label>
+          <input class="input" id="email" type="email" placeholder="you@example.com" autocomplete="username" />
+        </div>
+        <div>
+          <label class="small muted">Password</label>
+          <input class="input" id="password" type="password" placeholder="••••••••" autocomplete="current-password" />
+        </div>
+      </div>
+      <div style="display:flex; gap:10px; margin-top:12px; flex-wrap:wrap;">
+        <button class="btn primary" id="btnLogin">Sign in</button>
+        <!-- Account creation and password reset are disabled.  All accounts should be pre‑created by an administrator. -->
+      </div>
+      <div class="divider"></div>
+      <p class="small muted" id="authMsg"></p>
+    </div>
 
-/* Persist login */
-auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+    <!-- Main app grid; hidden until authenticated -->
+    <div class="grid" id="appGrid" style="display:none;">
 
-/* =========================
-   AUTH
-========================= */
-async function login(){
-  const email = email.value.trim();
-  const password = password.value;
-  try{
-    await auth.signInWithEmailAndPassword(email,password);
-  }catch(e){
-    loginMsg.textContent = e.message;
-  }
-}
+      <!-- Left sidebar providing quick info and tips -->
+      <div class="card">
+        <h3>Quick info</h3>
+        <div class="list">
+          <div class="item" id="quickMostUsed">
+            <div class="title">Most Used Resources</div>
+            <div class="desc">Shows top clicks (admins/managers see more).</div>
+          </div>
+          <div class="item" id="quickAnnouncements">
+            <div class="title">Announcements</div>
+            <div class="desc">Footer pages are placeholders in this single file.</div>
+          </div>
+          <div class="item" id="quickUpdates">
+            <div class="title">Updates</div>
+            <div class="desc">Add an “updates” doc later if you want.</div>
+          </div>
+        </div>
+        <div class="divider"></div>
+        <p class="small muted">
+          Tip: For real security, enforce roles in <b>Firestore Security Rules</b> (not just UI).
+        </p>
+      </div>
 
-function logout(){
-  auth.signOut();
-}
+      <!-- Main view container; each section corresponds to a tab -->
+      <div class="views">
 
-/* =========================
-   THEME
-========================= */
-async function setTheme(theme){
-  document.body.classList.toggle("dark", theme==="dark");
-  if(auth.currentUser){
-    await db.collection("settings").doc(auth.currentUser.uid).set({
-      theme
-    },{merge:true});
-  }
-}
+        <section id="homeView" class="card active">
+          <h2>Home</h2>
+          <p class="muted">
+            Welcome! Use the tabs to browse resources, utilities, chat, calendar, and (if allowed) admin tools.
+          </p>
+          <div class="divider"></div>
+          <div class="card" style="box-shadow:none;">
+            <h3>What’s here</h3>
+            <ul class="muted">
+              <li>Study Resources: categories (brands) → links</li>
+              <li>Utilities: standalone tools/links</li>
+              <li>Member Chat + Staff Chat</li>
+              <li>District Calendar</li>
+              <li>Admin: user/role management, content editing, stats</li>
+            </ul>
+          </div>
+        </section>
 
-/* =========================
-   AUTH STATE
-========================= */
-auth.onAuthStateChanged(async user=>{
-  if(!user){
-    login.classList.remove("hidden");
-    app.classList.add("hidden");
-    return;
-  }
+        <!-- Study Resources view -->
+        <section id="resourcesView" class="card">
+          <h2>Study Resources</h2>
+          <p class="muted">Pick a category to open its links.</p>
+          <div class="divider"></div>
 
-  login.classList.add("hidden");
-  app.classList.remove("hidden");
+          <div id="resourcesList" class="list"></div>
 
-  // Load user doc
-  const uref = db.collection("users").doc(user.uid);
-  let snap = await uref.get();
-  if(!snap.exists){
-    await uref.set({
-      role:"member",
-      disabled:false,
-      banned:false,
-      warnings:0
+          <div class="divider"></div>
+
+          <div id="resourceDetail" style="display:none;">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px; flex-wrap:wrap;">
+              <div>
+                <h3 id="resourceTitle" style="margin-bottom:4px;">Category</h3>
+                <div class="muted small" id="resourceMeta"></div>
+              </div>
+              <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                <button class="btn" id="btnBackToResources">Back</button>
+                <button class="btn primary" id="btnAdminAddLink" style="display:none;">Add link</button>
+              </div>
+            </div>
+            <div class="divider"></div>
+            <div id="resourceLinks" class="list"></div>
+          </div>
+        </section>
+
+        <!-- Utilities view -->
+        <section id="utilitiesView" class="card">
+          <h2>Utilities</h2>
+          <p class="muted">Standalone tools and links.</p>
+          <div class="divider"></div>
+          <div id="utilitiesList" class="list"></div>
+          <div class="divider"></div>
+          <button class="btn primary" id="btnAdminAddUtility" style="display:none;">Add utility</button>
+        </section>
+
+        <!-- Member chat view -->
+        <section id="memberChatView" class="card">
+          <h2>Member Chat</h2>
+          <p class="muted">Real-time group messages.</p>
+          <div class="divider"></div>
+
+          <div class="chatbox" id="memberChatBox"></div>
+
+          <div class="divider"></div>
+          <div class="row">
+            <input class="input" id="memberChatInput" placeholder="Message..." maxlength="600" />
+            <button class="btn primary" id="btnSendMember">Send</button>
+          </div>
+          <p class="small muted">Keep it respectful. Messages are stored in Firestore.</p>
+        </section>
+
+        <!-- Staff chat view -->
+        <section id="staffChatView" class="card">
+          <h2>Staff Chat</h2>
+          <p class="muted">Private chat for higher roles (manager/admin).</p>
+          <div class="divider"></div>
+
+          <div class="chatbox" id="staffChatBox"></div>
+
+          <div class="divider"></div>
+          <div class="row">
+            <input class="input" id="staffChatInput" placeholder="Staff message..." maxlength="600" />
+            <button class="btn primary" id="btnSendStaff">Send</button>
+          </div>
+          <p class="small muted">Visible only if your role allows it.</p>
+        </section>
+
+        <!-- Staff list view -->
+        <section id="staffListView" class="card">
+          <h2>Staff List</h2>
+          <p class="muted">Users with contributor/manager/admin roles.</p>
+          <div class="divider"></div>
+          <div id="staffList" class="list"></div>
+        </section>
+
+        <!-- Events / Calendar view -->
+        <section id="calendarView" class="card">
+          <h2>District Calendar</h2>
+          <p class="muted">Simple list of events from Firestore.</p>
+          <div class="divider"></div>
+          <div id="eventsList" class="list"></div>
+          <div class="divider"></div>
+          <button class="btn primary" id="btnAdminAddEvent" style="display:none;">Add event</button>
+        </section>
+
+        <!-- Admin panel view -->
+        <section id="adminView" class="card">
+          <h2>Admin Panel</h2>
+          <p class="muted">Manage users/roles, content, and usage stats.</p>
+          <div class="divider"></div>
+
+          <!-- Fallback panel for unauthorized users -->
+          <div id="adminLocked" class="card" style="box-shadow:none;">
+            <h3>Not authorized</h3>
+            <p class="muted">You don’t have permission to view admin tools.</p>
+          </div>
+
+          <div id="adminTools" style="display:none;">
+            <h3>Users</h3>
+            <p class="small muted">This lists documents in <span style="font-family:var(--mono)">users</span>. (Firebase Auth user listing requires server/admin SDK.)</p>
+            <div id="usersList" class="list"></div>
+
+            <div class="divider"></div>
+
+            <h3>Content</h3>
+            <div style="display:flex; gap:10px; flex-wrap:wrap;">
+              <button class="btn primary" id="btnAdminAddBrand">Add Category</button>
+              <button class="btn" id="btnAdminRefreshContent">Refresh Content</button>
+            </div>
+
+            <div class="divider"></div>
+
+            <h3>Usage stats</h3>
+            <p class="small muted">Top clicked resources (from <span style="font-family:var(--mono)">stats</span> docs).</p>
+            <div id="statsList" class="list"></div>
+
+        <div class="divider"></div>
+
+        <!-- Overview section summarising user and moderation counts -->
+        <h3>Overview</h3>
+        <p class="small muted">Quick summary of users and moderation actions.</p>
+        <div id="adminOverview" class="small muted" style="margin-bottom:8px;"></div>
+
+        <div class="divider"></div>
+
+        <!-- Moderation log section showing recent moderation actions -->
+        <h3>Moderation log</h3>
+        <p class="small muted">Recent warnings, suspensions and bans.</p>
+        <div id="modActionsList" class="list"></div>
+          </div>
+        </section>
+
+        <!-- Settings view -->
+        <section id="settingsView" class="card">
+          <h2>Settings</h2>
+          <p class="muted">Theme + quick logout.</p>
+
+          <div class="divider"></div>
+
+          <!-- Alias configuration -->
+          <h3>Alias</h3>
+          <p class="small muted">
+            Set a custom alias to identify yourself in chat. This will be shown
+            instead of your email or display name in conversations.
+          </p>
+          <div class="row">
+            <input class="input" id="aliasInput" placeholder="Enter alias (optional)" />
+            <button class="btn" id="btnSaveAlias">Save alias</button>
+          </div>
+
+          <div class="divider"></div>
+
+          <h3>Theme</h3>
+          <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+            <button class="btn" id="btnThemeAuto">Auto (system)</button>
+            <button class="btn" id="btnThemeLight">Light</button>
+            <button class="btn" id="btnThemeDark">Dark</button>
+            <span class="small muted" id="themeStatus"></span>
+          </div>
+
+          <div class="divider"></div>
+
+          <h3>Quick logout</h3>
+          <p class="small muted">
+            This signs you out and redirects to a URL you choose. (This is for privacy/safety, not “stealth mode”.)
+          </p>
+          <div class="row">
+            <input class="input" id="safeRedirectUrl" placeholder="https://www.example.com (optional)" />
+            <button class="btn danger" id="btnQuickLogout">Sign out &amp; Redirect</button>
+          </div>
+          <p class="small muted">
+            Optional shortcut: <span style="font-family:var(--mono)">Ctrl</span>+<span style="font-family:var(--mono)">Shift</span>+<span style="font-family:var(--mono)">L</span>
+          </p>
+
+          <div class="divider"></div>
+
+          <h3>Footer pages (placeholders)</h3>
+          <p class="small muted">
+            In a single-file app, you can implement these as modal dialogs or separate “views”.
+          </p>
+          <ul class="small muted">
+            <li><a href="#updates" onclick="alert('Placeholder: Updates page'); return false;">Updates</a></li>
+            <li><a href="#announcements" onclick="alert('Placeholder: Announcements page'); return false;">Announcements</a></li>
+            <li><a href="#terms" onclick="alert('Placeholder: Terms page'); return false;">Terms</a></li>
+            <li><a href="#privacy" onclick="alert('Placeholder: Privacy page'); return false;">Privacy</a></li>
+            <li><a href="#copyright" onclick="alert('Placeholder: Copyright page'); return false;">Copyright</a></li>
+          </ul>
+        </section>
+
+      </div><!-- end of .views -->
+    </div><!-- end of #appGrid -->
+
+    <footer id="footer" style="display:none;">
+      <div>Personal Learning Resources Portal • client-side + Firebase free tier</div>
+      <div class="small">
+        <a href="#" onclick="alert('Placeholder: Terms'); return false;">Terms</a> •
+        <a href="#" onclick="alert('Placeholder: Privacy'); return false;">Privacy</a> •
+        <a href="#" onclick="alert('Placeholder: Updates'); return false;">Updates</a>
+      </div>
+    </footer>
+
+  </div><!-- end of .wrap -->
+
+  <!-- Core application logic -->
+  <script>
+    /***********************
+     * Section 0) Firebase config
+     *
+     * Replace YOUR_FIREBASE_CONFIG_HERE with your actual project configuration.
+     * If the property remains present, the code will guard against using
+     * uninitialised config values and prompt you to paste the real config.
+     ***********************/
+    const firebaseConfig = {
+      // Firebase configuration for the project.  The measurementId is optional for v7.20.0+.
+      apiKey: "AIzaSyCBj78TuU8hviaYMILXkXIzNtU8yIgk39c",
+      authDomain: "learning-resources-2026.firebaseapp.com",
+      projectId: "learning-resources-2026",
+      // Use the default Cloud Storage bucket for your Firebase project.  When
+      // using the Realtime Database or Firestore this should point at your
+      // `<project-id>.appspot.com` bucket rather than the `firebasestorage.app` domain.
+      storageBucket: "learning-resources-2026.appspot.com",
+      messagingSenderId: "67701812368",
+      appId: "1:67701812368:web:d6ad7089316cdc66347c15",
+      measurementId: "G-K867JHELDB"
+    };
+
+    // Basic guard so you don’t forget to paste config
+    // Disable the "fake config" check now that your real Firebase config has
+    // been provided.  Setting this to `false` ensures the login code will not
+    // short‑circuit before attempting to sign you in.
+    const configLooksFake = false;
+
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+
+    // -------------------------------------------------------------------
+    // Persist authentication across tabs and sessions.
+    // By default Firebase uses session persistence for sign‑ins, meaning
+    // users will be signed out when the tab or browser is closed.  We
+    // explicitly set LOCAL persistence so that the auth state is stored in
+    // localStorage.  This ensures that users remain logged in across
+    // browser restarts or tab closures.  If this call fails (for
+    // example, in a private/incognito context), we simply log the
+    // warning and fallback to default behaviour.
+    auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch((err) => {
+      console.warn("Failed to set auth persistence", err);
     });
-    snap = await uref.get();
-  }
 
-  const u = snap.data();
-  if(u.disabled || u.banned){
-    alert("Account restricted");
-    return logout();
-  }
+    /***********************
+     * Section 1) Constants and role helpers
+     *
+     * Define available roles in order of authority.  The roleRank helper
+     * returns a numeric rank for comparison.  Co-admin is treated as
+     * equivalent to admin here.
+     *
+     * CHAT_LIMIT controls how many chat messages we load from Firestore.  A
+     * lower number keeps free-tier read costs manageable, while still
+     * providing enough context for a conversation.
+     ***********************/
+    const ROLES = ["member","contributor","manager","admin","co-admin"];
+    const roleRank = (r) => {
+      if (!r) return 0;
+      if (r === "co-admin") return 4;
+      return Math.max(0, ROLES.indexOf(r));
+    };
+    const CHAT_LIMIT = 100;
 
-  roleBadge.textContent = `Role: ${u.role}`;
-  userInfo.textContent = user.email;
+    /***********************
+     * Section 2) UI helpers
+     *
+     * Convenient shortcuts for DOM selection and simple UI state updates.
+     * setView toggles active sections and ensures we scroll to the top
+     * when switching views.  setAuthMessage displays feedback to the
+     * user during auth operations.
+     ***********************/
+    const $ = (id) => document.getElementById(id);
 
-  // Load settings
-  const sref = db.collection("settings").doc(user.uid);
-  const ssnap = await sref.get();
-  if(ssnap.exists && ssnap.data().theme==="dark"){
-    document.body.classList.add("dark");
-  }
-});
-</script>
+    const authCard = $("authCard");
+    const appGrid = $("appGrid");
+    const authMsg = $("authMsg");
+    const roleBadge = $("roleBadge");
+    const userName = $("userName");
+    const userEmail = $("userEmail");
+    const btnSignOut = $("btnSignOut");
+
+    // Elements that are hidden when signed out
+    const topbar = document.getElementById('topbar');
+    const footerEl = document.getElementById('footer');
+
+    // Alias input and save button (may be undefined until settings view is rendered)
+    const aliasInput = $("aliasInput");
+    const btnSaveAlias = $("btnSaveAlias");
+
+    const tabs = Array.from(document.querySelectorAll(".tab"));
+    const sections = Array.from(document.querySelectorAll(".views > section"));
+
+    let setView = function(viewId){
+      sections.forEach(s => s.classList.toggle("active", s.id === viewId));
+      tabs.forEach(t => t.classList.toggle("active", t.dataset.view === viewId));
+      // Scroll to top of main card area on mobile
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    };
+
+    tabs.forEach(t => {
+      t.addEventListener("click", () => {
+        if (t.disabled) return;
+        setView(t.dataset.view);
+      });
+    });
+
+    function setAuthMessage(msg, isError=false){
+      authMsg.textContent = msg || "";
+      authMsg.style.color = isError ? "#ef4444" : "";
+    }
+
+    /***********************
+     * Section 3) Theme (auto/light/dark)
+     *
+     * Handles user preferences for light/dark mode and reacts to system
+     * changes when the mode is set to auto.  The theme mode is stored
+     * in Firestore per user and applied on login.
+     ***********************/
+    const themeStatus = $("themeStatus");
+    const btnThemeAuto = $("btnThemeAuto");
+    const btnThemeLight = $("btnThemeLight");
+    const btnThemeDark = $("btnThemeDark");
+
+    let currentThemeMode = "auto"; // auto | light | dark
+
+    function applyTheme(mode){
+      currentThemeMode = mode;
+      if (mode === "auto"){
+        // Remove explicit theme so CSS variables follow system preferences
+        document.documentElement.removeAttribute("data-theme");
+        themeStatus.textContent = "Following system preference";
+        // If the system prefers dark, ensure dark attributes are applied for first load
+        if (systemPrefersDark()) document.documentElement.setAttribute("data-theme","dark");
+      } else {
+        document.documentElement.setAttribute("data-theme", mode);
+        themeStatus.textContent = "Theme set to " + mode;
+      }
+    }
+
+    function systemPrefersDark(){
+      return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+    }
+
+    // Listen for system theme changes when in auto mode
+    if (window.matchMedia){
+      window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
+        if (currentThemeMode === "auto") applyTheme("auto");
+      });
+    }
+
+    btnThemeAuto.addEventListener("click", () => saveSettings({ theme: "auto" }));
+    btnThemeLight.addEventListener("click", () => saveSettings({ theme: "light" }));
+    btnThemeDark.addEventListener("click", () => saveSettings({ theme: "dark" }));
+
+    /***********************
+     * Section 4) Quick logout (safe)
+     *
+     * This feature provides a visible sign‑out mechanism with an optional
+     * redirect URL for the user’s safety and privacy.  Pressing
+     * Ctrl+Shift+L triggers the same logic.
+     ***********************/
+    const safeRedirectUrl = $("safeRedirectUrl");
+    const btnQuickLogout = $("btnQuickLogout");
+
+    async function quickLogout(){
+      const url = (safeRedirectUrl.value || "").trim();
+      try { await auth.signOut(); } catch (e) {
+        console.error("Error during quick logout", e);
+      }
+      if (url){
+        window.location.href = url;
+      }
+    }
+
+    btnQuickLogout.addEventListener("click", quickLogout);
+
+    // Alias saving: write the alias to the user's settings document and update
+    // the displayed name.  Guard against missing elements when the settings
+    // view hasn’t been rendered yet.
+    if (btnSaveAlias) {
+      btnSaveAlias.addEventListener("click", async () => {
+        if (!currentUser) return;
+        const newAlias = aliasInput ? aliasInput.value.trim() : "";
+        try {
+          // Persist alias in the settings document
+          await db.collection("settings").doc(currentUser.uid).set({
+            alias: newAlias,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+          }, { merge:true });
+          // Also persist alias on the user document to surface it in admin listings
+          await db.collection("users").doc(currentUser.uid).set({
+            alias: newAlias,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+          }, { merge:true });
+          currentAlias = newAlias;
+          const fallbackName = currentUser.email ? currentUser.email.split("@")[0] : "user";
+          userName.textContent = currentAlias || currentUserDoc?.displayName || fallbackName;
+          alert("Alias saved.");
+        } catch (e) {
+          console.error("Failed to save alias", e);
+          alert("Failed to save alias.");
+        }
+      });
+    }
+
+    // Optional keyboard shortcut: Ctrl+Shift+L to trigger quick logout
+    document.addEventListener("keydown", (e) => {
+      if (e.ctrlKey && e.shiftKey && (e.key === "L" || e.key === "l")){
+        e.preventDefault();
+        quickLogout();
+      }
+    });
+
+    /***********************
+     * Section 5) Authentication actions: login/register/reset
+     *
+     * The UI provides three buttons to handle sign‑in, sign‑up, and
+     * password reset.  Each operation uses Firebase Auth and updates
+     * Firestore documents on successful account creation.  Errors are
+     * displayed in the auth message area and logged for debugging.
+     ***********************/
+    $("btnLogin").addEventListener("click", async () => {
+      if (configLooksFake) return setAuthMessage("Paste your Firebase config first.", true);
+      const email = $("email").value.trim();
+      const password = $("password").value;
+      setAuthMessage("Signing in...");
+      try{
+        await auth.signInWithEmailAndPassword(email, password);
+        setAuthMessage("");
+      } catch (e){
+        setAuthMessage(e.message, true);
+        console.error("Sign in failed", e);
+      }
+    });
+
+    // Registration and password reset handlers are intentionally disabled.  Accounts should be managed
+    // by administrators via the Firebase console or a dedicated admin interface.
+
+    btnSignOut.addEventListener("click", () => auth.signOut());
+
+    /***********************
+     * Section 6) Role & user state
+     *
+     * We keep track of the current user object (from Firebase Auth) and
+     * their Firestore user document (currentUserDoc).  Helper functions
+     * like setTabsEnabled ensure the UI reacts to role changes, and
+     * ensureUserDoc creates a user document if it doesn’t exist.
+     ***********************/
+    let currentUser = null;
+    let currentUserDoc = null;
+    // currentAlias holds the user's preferred chat alias.  If set, it overrides
+    // displayName or email when showing the user's name in chat and the top bar.
+    let currentAlias = "";
+
+    function setTabsEnabled({ signedIn, role }){
+      const r = role || "member";
+      const rank = roleRank(r);
+
+      const canStaff = rank >= roleRank("manager");
+      const canAdmin = (r === "admin" || r === "co-admin");
+
+      // Tabs available to all signed‑in users
+      const signedInOnly = ["tabHome","tabResources","tabUtilities","tabMemberChat","tabCalendar","tabSettings","tabStaffList"];
+      signedInOnly.forEach(id => $(id).disabled = !signedIn);
+
+      // Staff chat only for manager+ roles
+      $("tabStaffChat").disabled = !signedIn || !canStaff;
+      // Only full admins (admin/co‑admin) can access the admin tab; managers no longer see it
+      $("tabAdmin").disabled = !signedIn || !canAdmin;
+    }
+
+    async function ensureUserDoc(user){
+      const ref = db.collection("users").doc(user.uid);
+      const snap = await ref.get();
+      if (!snap.exists){
+        await ref.set({
+          email: user.email || "",
+          displayName: (user.email || "user").split("@")[0],
+          role: "member",
+          disabled: false,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge:true });
+      }
+      return ref;
+    }
+
+    /***********************
+     * Section 7) Data loaders
+     *
+     * These functions fetch data from Firestore for the various views.
+     * They include try/catch blocks to gracefully handle errors and
+     * display a friendly message instead of leaving the UI blank.  The
+     * load* functions use orderBy and limit to keep reads predictable.
+     ***********************/
+    let unsubMemberChat = null;
+    let unsubStaffChat = null;
+
+    async function loadSettings(uid){
+      try {
+        const sref = db.collection("settings").doc(uid);
+        const ssnap = await sref.get();
+        let s = ssnap.exists ? ssnap.data() : {};
+        const theme = s.theme || "auto";
+        const url = s.safeRedirectUrl || "";
+        const alias = s.alias || "";
+        // Update safe redirect URL
+        safeRedirectUrl.value = url;
+        // Update alias input and internal alias variable if the elements exist
+        if (aliasInput) aliasInput.value = alias;
+        currentAlias = alias;
+        // Update the name displayed in the top bar using alias if available
+        const fallbackName = currentUser && currentUser.email ? (currentUser.email.split("@")[0]) : "user";
+        userName.textContent = currentAlias || (currentUserDoc?.displayName) || fallbackName;
+        // Apply theme according to stored preference
+        if (theme === "auto"){
+          applyTheme("auto");
+        } else {
+          applyTheme(theme);
+        }
+      } catch (e){
+        console.error("Error loading settings", e);
+        // Fallback to auto theme
+        applyTheme("auto");
+      }
+    }
+
+    async function saveSettings(partial){
+      if (!currentUser) return;
+      try {
+        const sref = db.collection("settings").doc(currentUser.uid);
+        const payload = Object.assign({}, partial, {
+          safeRedirectUrl: (safeRedirectUrl.value || "").trim(),
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        await sref.set(payload, { merge:true });
+        if (partial.theme){
+          applyTheme(partial.theme);
+        }
+      } catch (e){
+        console.error("Failed to save settings", e);
+      }
+    }
+
+    function clearLists(){
+      $("resourcesList").innerHTML = "";
+      $("resourceLinks").innerHTML = "";
+      $("utilitiesList").innerHTML = "";
+      $("memberChatBox").innerHTML = "";
+      $("staffChatBox").innerHTML = "";
+      $("staffList").innerHTML = "";
+      $("eventsList").innerHTML = "";
+      $("usersList").innerHTML = "";
+      $("statsList").innerHTML = "";
+    }
+
+    async function loadBrands(){
+      const list = $("resourcesList");
+      list.innerHTML = "";
+      $("resourceDetail").style.display = "none";
+      try {
+        const snap = await db.collection("brands").orderBy("name").get();
+        if (snap.empty){
+          list.innerHTML = `<div class="muted small">No categories yet.</div>`;
+          return;
+        }
+        snap.forEach(doc => {
+          const d = doc.data();
+          const el = document.createElement("div");
+          el.className = "item";
+          el.innerHTML = `
+            <div class="title">${escapeHtml(d.name || doc.id)}</div>
+            <div class="desc">${escapeHtml(d.description || "Open to view links")}</div>
+          `;
+          el.addEventListener("click", () => openBrand(doc.id, d));
+          list.appendChild(el);
+        });
+      } catch (e){
+        console.error("Error loading brands", e);
+        list.innerHTML = `<div class="muted small">Error loading categories. Try again later.</div>`;
+      }
+    }
+
+    function escapeHtml(str){
+      return String(str ?? "")
+        .replaceAll("&","&amp;")
+        .replaceAll("<","&lt;")
+        .replaceAll(">","&gt;")
+        .replaceAll('"','&quot;')
+        .replaceAll("'","&#039;");
+    }
+
+    let activeBrandId = null;
+    let activeBrandData = null;
+
+    async function openBrand(brandId, brandData){
+      activeBrandId = brandId;
+      activeBrandData = brandData;
+
+      $("resourceTitle").textContent = brandData.name || brandId;
+      $("resourceMeta").textContent = brandData.description || "";
+
+      // Show detail, hide list
+      $("resourceDetail").style.display = "block";
+      $("resourcesList").style.display = "none";
+
+      // Load latest doc to ensure fresh links
+      try {
+        const ref = db.collection("brands").doc(brandId);
+        const snap = await ref.get();
+        const d = snap.exists ? snap.data() : brandData;
+        const links = Array.isArray(d.links) ? d.links : [];
+        const container = $("resourceLinks");
+        container.innerHTML = "";
+
+        if (!links.length){
+          container.innerHTML = `<div class="muted small">No links in this category yet.</div>`;
+        } else {
+          links.forEach((link, idx) => {
+            const title = link.title || link.name || ("Link " + (idx+1));
+            const url = link.url || "#";
+            const desc = link.desc || "";
+            const el = document.createElement("div");
+            el.className = "item";
+            el.innerHTML = `
+              <div class="title">${escapeHtml(title)}</div>
+              <div class="desc">${escapeHtml(desc || url)}</div>
+            `;
+            el.addEventListener("click", async () => {
+              try {
+                await trackClick(`brand:${brandId}:${idx}`, { brandId, title, url });
+              } catch (err) {
+                console.error("Error tracking click", err);
+              }
+              window.open(url, "_blank", "noopener,noreferrer");
+            });
+            // Admin controls inline (edit/delete)
+            if (canEditContent()){
+              const actions = document.createElement("div");
+              actions.style.marginTop = "8px";
+              actions.style.display = "flex";
+              actions.style.gap = "8px";
+              actions.style.flexWrap = "wrap";
+              const btnEdit = document.createElement("button");
+              btnEdit.className = "btn";
+              btnEdit.textContent = "Edit";
+              btnEdit.addEventListener("click", async (e) => {
+                e.stopPropagation();
+                await editBrandLink(brandId, idx, links[idx]);
+              });
+              const btnDel = document.createElement("button");
+              btnDel.className = "btn danger";
+              btnDel.textContent = "Delete";
+              btnDel.addEventListener("click", async (e) => {
+                e.stopPropagation();
+                await deleteBrandLink(brandId, idx);
+              });
+              actions.appendChild(btnEdit);
+              actions.appendChild(btnDel);
+              el.appendChild(actions);
+            }
+            container.appendChild(el);
+          });
+        }
+        $("btnAdminAddLink").style.display = canEditContent() ? "inline-block" : "none";
+      } catch (e){
+        console.error("Error opening brand", e);
+        const container = $("resourceLinks");
+        container.innerHTML = `<div class="muted small">Error loading links.</div>`;
+      }
+    }
+
+    $("btnBackToResources").addEventListener("click", () => {
+      $("resourceDetail").style.display = "none";
+      $("resourcesList").style.display = "flex";
+      activeBrandId = null;
+      activeBrandData = null;
+    });
+
+    function canEditContent(){
+      if (!currentUserDoc) return false;
+      // If a user document explicitly sets canEditContent, honour that.
+      if (Object.prototype.hasOwnProperty.call(currentUserDoc, 'canEditContent')){
+        return !!currentUserDoc.canEditContent;
+      }
+      const r = currentUserDoc.role;
+      return roleRank(r) >= roleRank("contributor");
+    }
+
+    async function loadUtilities(){
+      const list = $("utilitiesList");
+      list.innerHTML = "";
+      try {
+        const snap = await db.collection("utilities").orderBy("name").get();
+        if (snap.empty){
+          list.innerHTML = `<div class="muted small">No utilities yet.</div>`;
+        } else {
+          snap.forEach(doc => {
+            const d = doc.data();
+            const el = document.createElement("div");
+            el.className = "item";
+            el.innerHTML = `
+              <div class="title">${escapeHtml(d.name || doc.id)}</div>
+              <div class="desc">${escapeHtml(d.desc || d.url || "")}</div>
+            `;
+            el.addEventListener("click", async () => {
+              try {
+                await trackClick(`utility:${doc.id}`, { utilityId: doc.id, title: d.name || doc.id, url: d.url || "" });
+              } catch (err) {
+                console.error("Error tracking click", err);
+              }
+              if (d.url) window.open(d.url, "_blank", "noopener,noreferrer");
+            });
+            if (canEditContent()){
+              const actions = document.createElement("div");
+              actions.style.marginTop = "8px";
+              actions.style.display = "flex";
+              actions.style.gap = "8px";
+              actions.style.flexWrap = "wrap";
+              const btnEdit = document.createElement("button");
+              btnEdit.className = "btn";
+              btnEdit.textContent = "Edit";
+              btnEdit.addEventListener("click", async (e) => {
+                e.stopPropagation();
+                await editUtility(doc.id, d);
+              });
+              const btnDel = document.createElement("button");
+              btnDel.className = "btn danger";
+              btnDel.textContent = "Delete";
+              btnDel.addEventListener("click", async (e) => {
+                e.stopPropagation();
+                await deleteUtility(doc.id);
+              });
+              actions.appendChild(btnEdit);
+              actions.appendChild(btnDel);
+              el.appendChild(actions);
+            }
+            list.appendChild(el);
+          });
+        }
+        $("btnAdminAddUtility").style.display = canEditContent() ? "inline-block" : "none";
+      } catch (e){
+        console.error("Error loading utilities", e);
+        list.innerHTML = `<div class="muted small">Error loading utilities.</div>`;
+      }
+    }
+
+    async function loadEvents(){
+      const list = $("eventsList");
+      list.innerHTML = "";
+      try {
+        const snap = await db.collection("events").orderBy("date").limit(50).get();
+        if (snap.empty){
+          list.innerHTML = `<div class="muted small">No events yet.</div>`;
+        } else {
+          snap.forEach(doc => {
+            const d = doc.data();
+            const el = document.createElement("div");
+            el.className = "item";
+            el.innerHTML = `
+              <div class="title">${escapeHtml(d.title || "Event")}</div>
+              <div class="desc">${escapeHtml((d.date || "") + (d.location ? (" • " + d.location) : ""))}</div>
+            `;
+            if (canEditContent()){
+              const actions = document.createElement("div");
+              actions.style.marginTop = "8px";
+              actions.style.display = "flex";
+              actions.style.gap = "8px";
+              actions.style.flexWrap = "wrap";
+              const btnEdit = document.createElement("button");
+              btnEdit.className = "btn";
+              btnEdit.textContent = "Edit";
+              btnEdit.addEventListener("click", async (e) => {
+                e.stopPropagation();
+                await editEvent(doc.id, d);
+              });
+              const btnDel = document.createElement("button");
+              btnDel.className = "btn danger";
+              btnDel.textContent = "Delete";
+              btnDel.addEventListener("click", async (e) => {
+                e.stopPropagation();
+                await deleteEvent(doc.id);
+              });
+              actions.appendChild(btnEdit);
+              actions.appendChild(btnDel);
+              el.appendChild(actions);
+            }
+            list.appendChild(el);
+          });
+        }
+        $("btnAdminAddEvent").style.display = canEditContent() ? "inline-block" : "none";
+      } catch (e){
+        console.error("Error loading events", e);
+        list.innerHTML = `<div class="muted small">Error loading events.</div>`;
+      }
+    }
+
+    async function loadStaffList(){
+      const list = $("staffList");
+      list.innerHTML = "";
+      try {
+        // contributor+ only
+        const snap = await db.collection("users").where("role","in",["contributor","manager","admin","co-admin"]).get();
+        if (snap.empty){
+          list.innerHTML = `<div class="muted small">No staff users yet.</div>`;
+          return;
+        }
+        snap.forEach(doc => {
+          const d = doc.data();
+          const el = document.createElement("div");
+          el.className = "item";
+          const alias = d.alias || d.displayName || (d.email ? d.email.split("@")[0] : doc.id);
+          el.innerHTML = `
+            <div class="title">${escapeHtml(alias)}</div>
+            <div class="desc">${escapeHtml(d.role || "member")} • ${escapeHtml(d.email || "")}</div>
+          `;
+          list.appendChild(el);
+        });
+      } catch (e){
+        console.error("Error loading staff list", e);
+        list.innerHTML = `<div class="muted small">Error loading staff list.</div>`;
+      }
+    }
+
+    /***********************
+     * Section 8) Click tracking (free-tier friendly)
+     *
+     * trackClick increments an aggregated counter in the stats collection.
+     * This avoids writing a document per click, which could quickly
+     * consume free-tier writes.  The optional per-click audit is
+     * commented out and should only be enabled if needed and you are
+     * prepared for the increased cost.  loadTopStats reads the top
+     * N stats and displays them in the admin panel.
+     ***********************/
+    async function trackClick(key, meta){
+      if (!currentUser) return;
+      try {
+        const statsRef = db.collection("stats").doc(key);
+        await statsRef.set({
+          key,
+          count: firebase.firestore.FieldValue.increment(1),
+          lastClickedAt: firebase.firestore.FieldValue.serverTimestamp(),
+          lastMeta: meta || {}
+        }, { merge:true });
+        // Optional per-click logging.  Commented out to avoid expensive writes.
+        // await db.collection("clicks").add({
+        //   uid: currentUser.uid,
+        //   key,
+        //   meta: meta || {},
+        //   ts: firebase.firestore.FieldValue.serverTimestamp()
+        // });
+      } catch (e){
+        console.error("Error tracking click", e);
+      }
+    }
+
+    async function loadTopStats(limit=10){
+      const list = $("statsList");
+      list.innerHTML = "";
+      try {
+        const snap = await db.collection("stats").orderBy("count","desc").limit(limit).get();
+        if (snap.empty){
+          list.innerHTML = `<div class="muted small">No stats yet. Click a few resources.</div>`;
+          return;
+        }
+        snap.forEach(doc => {
+          const d = doc.data();
+          const el = document.createElement("div");
+          el.className = "item";
+          el.innerHTML = `
+            <div class="title">${escapeHtml(d.key || doc.id)} <span class="pill">${escapeHtml(d.count || 0)}</span></div>
+            <div class="desc">${escapeHtml((d.lastMeta && (d.lastMeta.title || d.lastMeta.url)) ? (d.lastMeta.title || d.lastMeta.url) : "")}</div>
+          `;
+          list.appendChild(el);
+        });
+      } catch (e){
+        console.error("Error loading stats", e);
+        list.innerHTML = `<div class="muted small">Error loading stats.</div>`;
+      }
+    }
+
+    /***********************
+     * Section 9) Chat listeners
+     *
+     * These functions subscribe to chat collections and render messages
+     * in real time.  They limit the number of messages to CHAT_LIMIT to
+     * avoid excessive reads.  The listeners are unsubscribed on
+     * sign‑out or role change to free up resources.
+     ***********************/
+    function fmtTime(ts){
+      try{
+        const d = ts?.toDate ? ts.toDate() : null;
+        if (!d) return "";
+        return d.toLocaleString();
+      } catch { return ""; }
+    }
+
+    function renderMessage(container, data){
+      const el = document.createElement("div");
+      el.className = "msg";
+      el.innerHTML = `
+        <div class="meta">
+          <span>${escapeHtml(data.name || data.email || data.uid || "user")}</span>
+          <span>${escapeHtml(fmtTime(data.ts))}</span>
+        </div>
+        <div class="text">${escapeHtml(data.text || "")}</div>
+      `;
+      container.appendChild(el);
+    }
+
+    function listenMemberChat(){
+      if (unsubMemberChat) unsubMemberChat();
+      const box = $("memberChatBox");
+      box.innerHTML = "";
+      unsubMemberChat = db.collection("memberChat")
+        .orderBy("ts","desc")
+        .limit(CHAT_LIMIT)
+        .onSnapshot((snap) => {
+          box.innerHTML = "";
+          const docs = snap.docs.slice().reverse();
+          docs.forEach(d => renderMessage(box, d.data()));
+          box.scrollTop = box.scrollHeight;
+        }, (err) => {
+          console.error("Error listening to member chat", err);
+          box.innerHTML = `<div class="muted small">Error loading chat messages.</div>`;
+        });
+    }
+
+    function listenStaffChat(){
+      if (unsubStaffChat) unsubStaffChat();
+      const box = $("staffChatBox");
+      box.innerHTML = "";
+      unsubStaffChat = db.collection("staffChat")
+        .orderBy("ts","desc")
+        .limit(CHAT_LIMIT)
+        .onSnapshot((snap) => {
+          box.innerHTML = "";
+          const docs = snap.docs.slice().reverse();
+          docs.forEach(d => renderMessage(box, d.data()));
+          box.scrollTop = box.scrollHeight;
+        }, (err) => {
+          console.error("Error listening to staff chat", err);
+          box.innerHTML = `<div class="muted small">Error loading staff chat messages.</div>`;
+        });
+    }
+
+    async function sendChat(collectionName, inputId){
+      const input = $(inputId);
+      const text = (input.value || "").trim();
+      if (!text) return;
+      // Prevent users with chat suspension from sending messages
+      if (currentUserDoc && currentUserDoc.chatSuspended){
+        alert("You are suspended from chat.");
+        return;
+      }
+      input.value = "";
+      try {
+        await db.collection(collectionName).add({
+          uid: currentUser.uid,
+          email: currentUser.email || "",
+          // Use the alias if set; otherwise fall back to displayName or email prefix
+          name: currentAlias || (currentUserDoc?.displayName) || (currentUser.email || "user").split("@")[0],
+          text,
+          ts: firebase.firestore.FieldValue.serverTimestamp()
+        });
+      } catch (e){
+        console.error("Error sending chat message", e);
+      }
+    }
+
+    $("btnSendMember").addEventListener("click", () => sendChat("memberChat","memberChatInput"));
+    $("memberChatInput").addEventListener("keydown", (e) => {
+      if (e.key === "Enter") sendChat("memberChat","memberChatInput");
+    });
+
+    $("btnSendStaff").addEventListener("click", () => sendChat("staffChat","staffChatInput"));
+    $("staffChatInput").addEventListener("keydown", (e) => {
+      if (e.key === "Enter") sendChat("staffChat","staffChatInput");
+    });
+
+    /***********************
+     * Section 10) Admin tools (basic)
+     *
+     * These helpers manage roles and user documents in Firestore.  Only
+     * full admins (admin/co‑admin) can enable/disable users or change
+     * roles.  Managers can view the admin panel but are limited to
+     * content editing and viewing stats.
+     ***********************/
+    function canUseStaffChat(){
+      const r = currentUserDoc?.role || "member";
+      // Managers and above can see staff chat by default.  A user doc
+      // may also specify staffChatAccess: true to grant this ability to
+      // moderators or other roles.
+      return roleRank(r) >= roleRank("manager") || !!currentUserDoc?.staffChatAccess;
+    }
+
+    /**
+     * Determine whether the current user should see the admin panel at all.
+     * Full administrators (admin/co‑admin) always have access.  Managers
+     * are permitted to enter a limited admin view for moderation.  A
+     * user document can also set `canModerate` or `chatSuspendAccess`
+     * to true to grant access to moderation tools to roles below
+     * manager (e.g. dedicated moderators).
+     */
+    function canUseAdmin(){
+      const r = currentUserDoc?.role || "member";
+      if (r === "admin" || r === "co-admin") return true;
+      if (r === "manager") return true;
+      return !!currentUserDoc?.canModerate || !!currentUserDoc?.chatSuspendAccess;
+    }
+
+    /**
+     * Full admins can perform high-impact actions such as banning or
+     * disabling accounts and changing roles.  Only users whose role is
+     * exactly 'admin' or 'co-admin' are considered full admins.
+     */
+    function isFullAdmin(){
+      const r = currentUserDoc?.role || "member";
+      return (r === "admin" || r === "co-admin");
+    }
+
+    /**
+     * Moderators are allowed to issue warnings and suspend chats but
+     * cannot ban users or disable accounts.  Managers and above are
+     * moderators by default.  Additionally a user doc may set
+     * `canModerate: true` or `chatSuspendAccess: true` to grant these
+     * powers to other roles.
+     */
+    function canModerate(){
+      const r = currentUserDoc?.role || "member";
+      if (roleRank(r) >= roleRank("manager")) return true;
+      return !!currentUserDoc?.canModerate || !!currentUserDoc?.chatSuspendAccess;
+    }
+
+    async function loadUsersForAdmin(){
+      const list = $("usersList");
+      list.innerHTML = "";
+      try {
+        const snap = await db.collection("users").orderBy("email").limit(200).get();
+        if (snap.empty){
+          list.innerHTML = `<div class="muted small">No user docs yet.</div>`;
+          return;
+        }
+        snap.forEach(doc => {
+          const d = doc.data();
+          const el = document.createElement("div");
+          el.className = "item";
+          const disabled = !!d.disabled;
+          const role = d.role || "member";
+          const alias = d.alias || d.displayName || (d.email ? d.email.split("@")[0] : doc.id);
+          const warnings = d.warnings || 0;
+          const chatSuspensions = d.chatSuspensions || 0;
+          const bans = d.bans || 0;
+          const chatSuspended = !!d.chatSuspended;
+          const banned = !!d.banned;
+          el.innerHTML = `
+            <div class="title">${escapeHtml(alias)} ${disabled ? '<span class="pill">disabled</span>' : ''}${banned ? ' <span class="pill">banned</span>' : ''}${chatSuspended ? ' <span class="pill">chat suspended</span>' : ''}</div>
+            <div class="desc">${escapeHtml(d.email || "")} • role: <b>${escapeHtml(role)}</b> • warnings: ${warnings} • chat suspensions: ${chatSuspensions} • bans: ${bans}</div>
+          `;
+          {
+            // Build action buttons based on the current user's authority.
+            const actions = document.createElement("div");
+            actions.style.marginTop = "8px";
+            actions.style.display = "flex";
+            actions.style.gap = "8px";
+            actions.style.flexWrap = "wrap";
+            // Moderation actions available to moderators (managers and users with
+            // canModerate/chatSuspendAccess).  Includes warn and chat suspend.
+            if (canModerate()){
+              const btnWarn = document.createElement("button");
+              btnWarn.className = "btn";
+              btnWarn.textContent = "Warn";
+              btnWarn.addEventListener("click", async (e) => {
+                e.stopPropagation();
+                await warnUser(doc.id, d);
+                await loadUsersForAdmin();
+              });
+              actions.appendChild(btnWarn);
+
+              const btnChat = document.createElement("button");
+              btnChat.className = "btn";
+              btnChat.textContent = chatSuspended ? "Resume Chat" : "Suspend Chat";
+              btnChat.addEventListener("click", async (e) => {
+                e.stopPropagation();
+                await toggleChatSuspend(doc.id, chatSuspended, d);
+                await loadUsersForAdmin();
+              });
+              actions.appendChild(btnChat);
+            }
+            // High‑impact actions only for full admins: ban/unban and change role.
+            if (isFullAdmin()){
+              const btnBan = document.createElement("button");
+              btnBan.className = "btn danger";
+              btnBan.textContent = banned ? "Unban" : "Ban";
+              btnBan.addEventListener("click", async (e) => {
+                e.stopPropagation();
+                await toggleBanUser(doc.id, banned, d);
+                await loadUsersForAdmin();
+              });
+              actions.appendChild(btnBan);
+
+
+              const btnRole = document.createElement("button");
+              btnRole.className = "btn";
+              btnRole.textContent = "Change role";
+              btnRole.addEventListener("click", async (e) => {
+                e.stopPropagation();
+                const newRole = prompt("Set role: member, contributor, manager, admin, co-admin", role);
+                if (!newRole) return;
+                if (!ROLES.includes(newRole)){
+                  alert("Invalid role.");
+                  return;
+                }
+                try {
+                  await db.collection("users").doc(doc.id).set({
+                    role: newRole,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                  }, { merge:true });
+                  await logModAction(doc.id, alias, "change role", newRole);
+                } catch (err){
+                  console.error("Error changing role", err);
+                }
+                await loadUsersForAdmin();
+              });
+              actions.appendChild(btnRole);
+            }
+            // Site suspension (disable/enable) is allowed for full admins and
+            // managers.  Users with explicit canDisable can also perform
+            // this action.  This appears outside of the full admin check
+            // so that managers can suspend accounts without needing ban
+            // permissions.  We insert the button here after other
+            // moderation actions.
+            if (isFullAdmin() || roleRank((currentUserDoc?.role)||"member") >= roleRank("manager") || !!currentUserDoc?.canDisable){
+              const btnToggle = document.createElement("button");
+              btnToggle.className = "btn danger";
+              btnToggle.textContent = disabled ? "Enable" : "Disable";
+              btnToggle.addEventListener("click", async (e) => {
+                e.stopPropagation();
+                try {
+                  await db.collection("users").doc(doc.id).set({
+                    disabled: !disabled,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                  }, { merge:true });
+                  await logModAction(doc.id, alias, disabled ? "enable" : "disable", "");
+                } catch (err){
+                  console.error("Error toggling user", err);
+                }
+                await loadUsersForAdmin();
+              });
+              actions.appendChild(btnToggle);
+            }
+            // Append the actions container only if there are buttons inside
+            if (actions.childNodes.length > 0){
+              el.appendChild(actions);
+            }
+          }
+          list.appendChild(el);
+        });
+      } catch (e){
+        console.error("Error loading users for admin", e);
+        list.innerHTML = `<div class="muted small">Error loading user list.</div>`;
+      }
+    }
+
+    // Content editing helpers
+    async function addBrand(){
+      const name = prompt("New category name (e.g., Jordan’s Math Tools v7)");
+      if (!name) return;
+      const desc = prompt("Description (optional)") || "";
+      const id = name.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/(^-|-$)/g,"").slice(0,60) || ("brand-" + Date.now());
+      try {
+        await db.collection("brands").doc(id).set({
+          name, description: desc, links: [],
+          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge:true });
+        await loadBrands();
+        alert("Category created.");
+      } catch (e){
+        console.error("Error adding brand", e);
+        alert("Failed to create category.");
+      }
+    }
+
+    async function addLinkToActiveBrand(){
+      if (!activeBrandId) return alert("Open a category first.");
+      const title = prompt("Link title");
+      if (!title) return;
+      const url = prompt("URL (include https://)");
+      if (!url) return;
+      const desc = prompt("Description (optional)") || "";
+      try {
+        const ref = db.collection("brands").doc(activeBrandId);
+        const snap = await ref.get();
+        const d = snap.exists ? snap.data() : {};
+        const links = Array.isArray(d.links) ? d.links : [];
+        links.push({ title, url, desc });
+        await ref.set({
+          links,
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge:true });
+        await openBrand(activeBrandId, d);
+      } catch (e){
+        console.error("Error adding link", e);
+        alert("Failed to add link.");
+      }
+    }
+
+    async function editBrandLink(brandId, idx, link){
+      const title = prompt("Edit title", link.title || "");
+      if (title === null) return;
+      const url = prompt("Edit URL", link.url || "");
+      if (url === null) return;
+      const desc = prompt("Edit description", link.desc || "");
+      if (desc === null) return;
+      try {
+        const ref = db.collection("brands").doc(brandId);
+        const snap = await ref.get();
+        const d = snap.data() || {};
+        const links = Array.isArray(d.links) ? d.links : [];
+        if (!links[idx]) return;
+        links[idx] = { title, url, desc };
+        await ref.set({ links, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge:true });
+        await openBrand(brandId, d);
+      } catch (e){
+        console.error("Error editing brand link", e);
+        alert("Failed to edit link.");
+      }
+    }
+
+    async function deleteBrandLink(brandId, idx){
+      if (!confirm("Delete this link?")) return;
+      try {
+        const ref = db.collection("brands").doc(brandId);
+        const snap = await ref.get();
+        const d = snap.data() || {};
+        const links = Array.isArray(d.links) ? d.links : [];
+        links.splice(idx, 1);
+        await ref.set({ links, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge:true });
+        await openBrand(brandId, d);
+      } catch (e){
+        console.error("Error deleting brand link", e);
+        alert("Failed to delete link.");
+      }
+    }
+
+    async function addUtility(){
+      const name = prompt("Utility name");
+      if (!name) return;
+      const url = prompt("URL (include https://)");
+      if (!url) return;
+      const desc = prompt("Description (optional)") || "";
+      const id = name.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/(^-|-$)/g,"").slice(0,60) || ("util-" + Date.now());
+      try {
+        await db.collection("utilities").doc(id).set({
+          name, url, desc,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge:true });
+        await loadUtilities();
+      } catch (e){
+        console.error("Error adding utility", e);
+        alert("Failed to add utility.");
+      }
+    }
+
+    async function editUtility(id, d){
+      const name = prompt("Edit name", d.name || "");
+      if (name === null) return;
+      const url = prompt("Edit URL", d.url || "");
+      if (url === null) return;
+      const desc = prompt("Edit description", d.desc || "");
+      if (desc === null) return;
+      try {
+        await db.collection("utilities").doc(id).set({
+          name, url, desc,
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge:true });
+        await loadUtilities();
+      } catch (e){
+        console.error("Error editing utility", e);
+        alert("Failed to edit utility.");
+      }
+    }
+
+    async function deleteUtility(id){
+      if (!confirm("Delete this utility?")) return;
+      try {
+        await db.collection("utilities").doc(id).delete();
+        await loadUtilities();
+      } catch (e){
+        console.error("Error deleting utility", e);
+        alert("Failed to delete utility.");
+      }
+    }
+
+    async function addEvent(){
+      const title = prompt("Event title");
+      if (!title) return;
+      const date = prompt("Date (YYYY-MM-DD)");
+      if (!date) return;
+      const location = prompt("Location (optional)") || "";
+      const id = "evt-" + Date.now();
+      try {
+        await db.collection("events").doc(id).set({
+          title, date, location,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge:true });
+        await loadEvents();
+      } catch (e){
+        console.error("Error adding event", e);
+        alert("Failed to add event.");
+      }
+    }
+
+    async function editEvent(id, d){
+      const title = prompt("Edit title", d.title || "");
+      if (title === null) return;
+      const date = prompt("Edit date (YYYY-MM-DD)", d.date || "");
+      if (date === null) return;
+      const location = prompt("Edit location", d.location || "");
+      if (location === null) return;
+      try {
+        await db.collection("events").doc(id).set({
+          title, date, location,
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge:true });
+        await loadEvents();
+      } catch (e){
+        console.error("Error editing event", e);
+        alert("Failed to edit event.");
+      }
+    }
+
+    async function deleteEvent(id){
+      if (!confirm("Delete this event?")) return;
+      try {
+        await db.collection("events").doc(id).delete();
+        await loadEvents();
+      } catch (e){
+        console.error("Error deleting event", e);
+        alert("Failed to delete event.");
+      }
+    }
+
+    /***********************
+     * Section 10.1) Moderation helpers
+     *
+     * Full admins can issue warnings, suspend or resume chat, and ban or unban
+     * users.  Each action updates the user's document, bumps counters and
+     * records a moderation log entry in the modActions collection.  The
+     * logModAction helper centralises log creation.
+     ***********************/
+
+    // Record a moderation action.  Always called from warnUser, toggleChatSuspend
+    // and toggleBanUser.  Does not throw on error to avoid blocking UI.
+    async function logModAction(uid, alias, actionType, reason){
+      try {
+        await db.collection("modActions").add({
+          uid: uid,
+          alias: alias,
+          actionType: actionType,
+          reason: reason || "",
+          byUid: currentUser.uid,
+          byAlias: currentAlias || (currentUserDoc?.displayName) || (currentUser.email || "user").split("@")[0],
+          ts: firebase.firestore.FieldValue.serverTimestamp()
+        });
+      } catch (e){
+        console.error("Error logging moderation action", e);
+      }
+    }
+
+    // Issue a warning to a user.  Increments their warnings count and logs the action.
+    async function warnUser(uid, userData){
+      const reason = prompt("Reason for warning (optional)", "") || "";
+      const alias = userData.alias || userData.displayName || (userData.email ? userData.email.split("@")[0] : uid);
+      try {
+        const currentWarnings = userData.warnings || 0;
+        await db.collection("users").doc(uid).set({
+          warnings: currentWarnings + 1,
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge:true });
+        await logModAction(uid, alias, "warning", reason);
+        await loadAdminOverview();
+        await loadModActions(50);
+      } catch (e){
+        console.error("Error warning user", e);
+        alert("Failed to issue warning.");
+      }
+    }
+
+    // Toggle chat suspension for a user.  When suspending, increments the
+    // chatSuspensions counter.  When resuming, leaves the count unchanged.
+    async function toggleChatSuspend(uid, currentFlag, userData){
+      const newFlag = !currentFlag;
+      const alias = userData.alias || userData.displayName || (userData.email ? userData.email.split("@")[0] : uid);
+      try {
+        const updates = {
+          chatSuspended: newFlag,
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        };
+        if (newFlag){
+          // Increment suspension count when applying a new suspension
+          updates.chatSuspensions = (userData.chatSuspensions || 0) + 1;
+        }
+        await db.collection("users").doc(uid).set(updates, { merge:true });
+        await logModAction(uid, alias, newFlag ? "chat_suspend" : "chat_resume", "");
+        await loadAdminOverview();
+        await loadModActions(50);
+      } catch (e){
+        console.error("Error toggling chat suspension", e);
+        alert("Failed to change chat suspension state.");
+      }
+    }
+
+    // Toggle ban status for a user.  When banning, increments the bans counter.
+    async function toggleBanUser(uid, currentFlag, userData){
+      const newFlag = !currentFlag;
+      const alias = userData.alias || userData.displayName || (userData.email ? userData.email.split("@")[0] : uid);
+      try {
+        const updates = {
+          banned: newFlag,
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        };
+        if (newFlag){
+          updates.bans = (userData.bans || 0) + 1;
+        }
+        await db.collection("users").doc(uid).set(updates, { merge:true });
+        await logModAction(uid, alias, newFlag ? "ban" : "unban", "");
+        await loadAdminOverview();
+        await loadModActions(50);
+      } catch (e){
+        console.error("Error toggling ban", e);
+        alert("Failed to change ban state.");
+      }
+    }
+
+    // Load the moderation log.  Retrieves the most recent actions up to
+    // the provided limit and renders them in the modActionsList.
+    async function loadModActions(limit = 50){
+      const list = $("modActionsList");
+      if (!list) return;
+      list.innerHTML = "";
+      try {
+        const snap = await db.collection("modActions").orderBy("ts","desc").limit(limit).get();
+        if (snap.empty){
+          list.innerHTML = `<div class="muted small">No moderation actions yet.</div>`;
+          return;
+        }
+        snap.forEach(doc => {
+          const d = doc.data();
+          const el = document.createElement("div");
+          el.className = "msg";
+          // Compose a readable message: [time] byAlias performed action on alias (reason)
+          const timeStr = fmtTime(d.ts);
+          const reasonPart = d.reason ? ` — ${escapeHtml(d.reason)}` : "";
+          el.innerHTML = `
+            <div class="meta">
+              <span>${escapeHtml(timeStr || "")}</span>
+              <span>${escapeHtml(d.byAlias || d.byUid || "admin")}</span>
+            </div>
+            <div class="text">
+              ${escapeHtml(d.actionType || "action")} → ${escapeHtml(d.alias || d.uid || "user")} ${reasonPart}
+            </div>
+          `;
+          list.appendChild(el);
+        });
+      } catch (e){
+        console.error("Error loading moderation log", e);
+        list.innerHTML = `<div class="muted small">Error loading moderation log.</div>`;
+      }
+    }
+
+    // Load a summary overview of user counts and moderation statistics.  This
+    // iterates through all user documents and aggregates totals.  Only
+    // called by full admins; avoid calling frequently due to read costs.
+    async function loadAdminOverview(){
+      const overview = $("adminOverview");
+      if (!overview) return;
+      try {
+        const snap = await db.collection("users").get();
+        let totalUsers = 0;
+        let warnings = 0;
+        let suspended = 0;
+        let bannedCount = 0;
+        snap.forEach(doc => {
+          totalUsers++;
+          const data = doc.data();
+          warnings += data.warnings || 0;
+          if (data.chatSuspended) suspended++;
+          if (data.banned) bannedCount++;
+        });
+        overview.innerHTML = `Users: ${totalUsers} • Total warnings: ${warnings} • Chat suspensions: ${suspended} • Banned: ${bannedCount}`;
+      } catch (e){
+        console.error("Error loading admin overview", e);
+        overview.innerHTML = "Error loading overview.";
+      }
+    }
+
+    $("btnAdminAddBrand").addEventListener("click", addBrand);
+    $("btnAdminRefreshContent").addEventListener("click", async () => {
+      await loadBrands();
+      await loadUtilities();
+      await loadEvents();
+      alert("Refreshed.");
+    });
+
+    $("btnAdminAddLink").addEventListener("click", addLinkToActiveBrand);
+    $("btnAdminAddUtility").addEventListener("click", addUtility);
+    $("btnAdminAddEvent").addEventListener("click", addEvent);
+
+    /***********************
+     * Section 11) Quick sidebar actions
+     *
+     * Provide shortcuts like Most Used Resources.  We jump to the admin
+     * view and load stats when the quick link is clicked.
+     ***********************/
+    $("quickMostUsed").addEventListener("click", async () => {
+      setView("adminView");
+      await loadTopStats(10);
+    });
+
+    /***********************
+     * Section 12) Auth state handler
+     *
+     * This is a critical part of the app: it runs every time the
+     * authentication state changes.  When the user signs in or out,
+     * we perform all necessary setup or teardown (load data, start
+     * listeners, apply theme, etc.).
+     ***********************/
+    auth.onAuthStateChanged(async (user) => {
+      clearLists();
+      // Unsubscribe chat listeners to avoid memory leaks when switching users
+      if (unsubMemberChat) unsubMemberChat();
+      if (unsubStaffChat) unsubStaffChat();
+      unsubMemberChat = null;
+      unsubStaffChat = null;
+
+      if (!user){
+        currentUser = null;
+        currentUserDoc = null;
+        authCard.style.display = "block";
+        appGrid.style.display = "none";
+        btnSignOut.style.display = "none";
+        roleBadge.textContent = "signed out";
+        userName.textContent = "Guest";
+        userEmail.textContent = "—";
+        setTabsEnabled({ signedIn:false, role:null });
+        // Hide navigation and footer when signed out
+        if (topbar) topbar.style.display = "none";
+        if (footerEl) footerEl.style.display = "none";
+        setView("homeView");
+        return;
+      }
+
+      // Signed in
+      currentUser = user;
+      btnSignOut.style.display = "inline-block";
+      // Show navigation and footer when signed in
+      if (topbar) topbar.style.display = "block";
+      if (footerEl) footerEl.style.display = "block";
+      try {
+        const uref = await ensureUserDoc(user);
+        const usnap = await uref.get();
+        currentUserDoc = usnap.data() || {};
+        if (currentUserDoc.disabled){
+          alert("Your account is disabled. Contact an admin.");
+          await auth.signOut();
+          return;
+        }
+        // Enforce bans at login: banned users are immediately signed out
+        if (currentUserDoc.banned){
+          alert("Your account is banned. Contact an admin.");
+          await auth.signOut();
+          return;
+        }
+      } catch (e){
+        console.error("Error retrieving user doc", e);
+        currentUserDoc = { role: "member" };
+      }
+      authCard.style.display = "none";
+      appGrid.style.display = "grid";
+      const role = currentUserDoc.role || "member";
+      roleBadge.textContent = role;
+      userName.textContent = currentUserDoc.displayName || (user.email || "user").split("@")[0];
+      userEmail.textContent = user.email || "";
+      setTabsEnabled({ signedIn:true, role });
+      $("tabStaffChat").disabled = !canUseStaffChat();
+      $("tabAdmin").disabled = !canUseAdmin();
+      // Admin view gating inside panel
+      if (canUseAdmin()){
+        $("adminLocked").style.display = "none";
+        $("adminTools").style.display = "block";
+      } else {
+        $("adminLocked").style.display = "block";
+        $("adminTools").style.display = "none";
+      }
+      await loadSettings(user.uid);
+      await loadBrands();
+      await loadUtilities();
+      await loadEvents();
+      await loadStaffList();
+      if (canUseAdmin()){
+        await loadTopStats(10);
+        await loadUsersForAdmin();
+        // Load admin overview and moderation log only for full admins
+        await loadAdminOverview();
+        await loadModActions(50);
+      }
+      // Start chat listeners
+      listenMemberChat();
+      if (canUseStaffChat()){
+        listenStaffChat();
+      } else {
+        if (unsubStaffChat) unsubStaffChat();
+        $("staffChatBox").innerHTML = `<div class="muted small">Not authorized.</div>`;
+      }
+      // Disable chat inputs if the user is suspended from chat
+      const memberInput = $("memberChatInput");
+      const memberBtn = $("btnSendMember");
+      const staffInputField = $("staffChatInput");
+      const staffBtn = $("btnSendStaff");
+      if (currentUserDoc.chatSuspended){
+        if (memberInput) {
+          memberInput.disabled = true;
+          memberInput.placeholder = "Chat suspended";
+        }
+        if (memberBtn) memberBtn.disabled = true;
+        if (staffInputField) {
+          staffInputField.disabled = true;
+          staffInputField.placeholder = "Chat suspended";
+        }
+        if (staffBtn) staffBtn.disabled = true;
+      } else {
+        if (memberInput) {
+          memberInput.disabled = false;
+          memberInput.placeholder = "Message...";
+        }
+        if (memberBtn) memberBtn.disabled = false;
+        if (staffInputField) {
+          staffInputField.disabled = false;
+          staffInputField.placeholder = "Staff message...";
+        }
+        if (staffBtn) staffBtn.disabled = false;
+      }
+      setView("homeView");
+    });
+
+    /***********************
+     * Section 13) View-specific gating (extra safety)
+     *
+     * Prevents unauthorized users from visiting views by manipulating
+     * the DOM directly or by bookmarking deep links.  If the user
+     * attempts to navigate to a disallowed view, they are returned
+     * to the home view.
+     ***********************/
+    const originalSetView = setView;
+    setView = function(viewId){
+      const role = currentUserDoc?.role || "member";
+      const staffOk = canUseStaffChat();
+      const adminOk = canUseAdmin();
+      if (viewId === "staffChatView" && !staffOk) viewId = "homeView";
+      if (viewId === "adminView" && !adminOk) viewId = "homeView";
+      originalSetView(viewId);
+    };
+
+    // Default to auto theme on first load (before auth) so system preference is applied
+    if (systemPrefersDark()) document.documentElement.setAttribute("data-theme","dark");
+
+    /***********************
+     * Firestore data shape examples (comment)
+     *
+     * These are simply comments to remind you of the expected structure of
+     * your Firestore collections and documents.  They are not executed.
+     *
+     * users/{uid}:
+     *  { email, displayName, role: "member|contributor|manager|admin|co-admin", disabled: false }
+     *
+     * brands/{brandId}:
+     *  { name, description, links: [{title,url,desc}, ...] }
+     *
+     * utilities/{utilId}:
+     *  { name, url, desc }
+     *
+     * memberChat/{msgId}:
+     *  { uid, name, text, ts }
+     *
+     * staffChat/{msgId}:
+     *  { uid, name, text, ts }
+     *
+     * events/{eventId}:
+     *  { title, date: "YYYY-MM-DD", location }
+     *
+     * stats/{key}:
+     *  { key, count, lastClickedAt, lastMeta }
+     *
+     * settings/{uid}:
+     *  { theme: "auto|light|dark", safeRedirectUrl }
+     ***********************/
+  </script>
+
+  <!--
+    SECURITY RULES REMINDER (not code-executed):
+    UI-only role checks are NOT real security. Use Firestore Security Rules to enforce:
+    - users can read their own doc
+    - staff/admin can read staffChat
+    - only contributor+ can write/edit brands/utilities/events
+    - only admin/co-admin can change roles/disabled flags
+  -->
 </body>
 </html>
