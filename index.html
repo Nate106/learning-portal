@@ -434,11 +434,7 @@
       try{ await auth.signInWithEmailAndPassword(email, password); setAuthMessage(""); }
       catch(e){ setAuthMessage(e.message || "Sign in failed.", true); }
     });
-          if (!email) return setAuthMessage("Enter your email first.", true);
-      setAuthMessage("Sending reset email...");
-      try{ await auth.sendPasswordResetEmail(email); setAuthMessage("Reset email sent."); }
-      catch(e){ setAuthMessage(e.message || "Reset failed.", true); }
-    });
+
     $("btnSignOut").addEventListener("click", () => auth.signOut());
 
     let currentUser = null;
