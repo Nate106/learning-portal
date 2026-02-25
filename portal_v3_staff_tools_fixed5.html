@@ -1,0 +1,1571 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Learning Portal v3 (Moderation)</title>
+
+<!-- Firebase compat (no build tools) -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+<style>
+  :root{
+    --bg:#f5f6fa; --card:#ffffff; --text:#111827; --muted:#6b7280; --border:#e5e7eb;
+    --accent:#2563eb; --danger:#ef4444; --ok:#10b981;
+    --shadow: 0 6px 18px rgba(0,0,0,.06); --radius: 12px;
+  }
+  *{box-sizing:border-box}
+  body{ margin:0; font-family: system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif; background:var(--bg); color:var(--text); }
+  header{ position:sticky; top:0; z-index:50; background:#111827; color:#fff; padding:12px 16px; display:flex; justify-content:space-between; align-items:center; }
+  .brand{ font-weight:800; letter-spacing:.2px; }
+  .topright{ display:flex; align-items:center; gap:10px; }
+  .chip{ max-width:52vw; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:13px; color:#e5e7eb; border:1px solid rgba(255,255,255,.15); padding:6px 10px; border-radius:999px; }
+  .btn{ border:none; border-radius:10px; padding:8px 12px; cursor:pointer; background:#374151; color:#fff; font-weight:650; }
+  .btn.primary{ background: var(--accent); }
+  .btn.ghost{ background: transparent; border:1px solid rgba(255,255,255,.2); }
+  .btn.danger{ background: var(--danger); }
+  .btn.ok{ background: var(--ok); }
+  .btn:disabled{ opacity:.5; cursor:not-allowed; }
+  .wrap{ max-width:1100px; margin:0 auto; padding:16px; }
+  .card{ background:var(--card); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow); padding:14px; }
+  .muted{ color:var(--muted); }
+  .small{ font-size:12px; }
+  .hidden{ display:none !important; }
+  .row{ display:flex; gap:10px; flex-wrap:wrap; }
+  .row > *{ flex:1; min-width:220px; }
+  input, select, textarea{
+    width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:10px;
+    outline:none; background:transparent; color:var(--text);
+  }
+  textarea{ min-height:90px; resize:vertical; }
+  .tabs{ display:flex; gap:8px; flex-wrap:wrap; margin:12px 0 0; }
+  .tab{ border:1px solid var(--border); background:#fff; color:var(--text); padding:8px 12px; border-radius:999px; cursor:pointer; font-weight:650; font-size:13px; }
+  .tab.active{ background: rgba(37,99,235,.12); border-color: rgba(37,99,235,.35); }
+  .divider{ height:1px; background: var(--border); margin:12px 0; }
+  .grid{ display:grid; grid-template-columns:320px 1fr; gap:12px; }
+  @media (max-width: 900px){ .grid{ grid-template-columns:1fr; } }
+  .list{ display:flex; flex-direction:column; gap:8px; }
+  .item{
+    border:1px solid var(--border); border-radius:12px; padding:10px 12px; background:transparent;
+    display:flex; justify-content:space-between; align-items:flex-start; gap:10px;
+  }
+  .item:hover{ border-color: rgba(37,99,235,.35); }
+  .item .title{ font-weight:750; overflow-wrap:anywhere; word-break:break-word; }
+  .item .desc{ margin-top:3px; font-size:12px; color:var(--muted); word-break:break-word; }
+  .pill{ display:inline-block; font-size:12px; color:var(--muted); border:1px solid var(--border); border-radius:999px; padding:3px 8px; white-space:nowrap; }
+  .actions{ display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
+  #loader{ position:fixed; inset:0; z-index:9999; background:#111827; color:#fff; display:none; align-items:center; justify-content:center; font-size:18px; font-weight:800; }
+  .toast{ margin-top:10px; font-size:12px; color: var(--muted); }
+  .dangerText{ color: var(--danger); }
+
+  /* Staff list button rows */
+  .listItem{
+    width:100%;
+    text-align:left;
+    border:1px solid var(--border);
+    border-radius:12px;
+    padding:10px 12px;
+    background:transparent;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    gap:10px;
+  }
+  .listItem:hover{ border-color: rgba(37,99,235,.35); }
+
+  /* Blocking warning modal */
+  #warnOverlay{
+    position:fixed; inset:0; z-index:10000;
+    background: rgba(0,0,0,.72);
+    display:none;
+    align-items:center;
+    justify-content:center;
+    padding:16px;
+  }
+  .warnCard{
+    max-width:520px; width:100%;
+    background:#fff;
+    border-radius:16px;
+    padding:16px;
+    border:1px solid #e5e7eb;
+    box-shadow: 0 10px 30px rgba(0,0,0,.25);
+  }
+  .warnTitle{
+    font-weight:900;
+    font-size:18px;
+    margin:0 0 8px;
+  }
+  .warnBody{
+    color:#111827;
+    white-space:pre-wrap;
+    line-height:1.4;
+  }
+  .warnMeta{
+    margin-top:10px;
+    color:#6b7280;
+    font-size:12px;
+  }
+  .warnFooter{
+    margin-top:14px;
+    display:flex;
+    gap:10px;
+    justify-content:flex-end;
+    align-items:center;
+    flex-wrap:wrap;
+  }
+  .countdown{
+    font-weight:800;
+    color:#111827;
+  }
+
+/* --- PATCH: staff tools layout fixes --- */
+#staffUserList .listItem { align-items: center; }
+#staffUserList .listItem > div:first-child { min-width: 0; }
+#staffUserList .listItem .small { white-space: normal; overflow-wrap: anywhere; word-break: break-word; }
+#staffUserList .listItem button { flex-shrink: 0; }
+#staffSelectedCard .kv { overflow-wrap: anywhere; word-break: break-word; }
+
+</style>
+</head>
+
+<body>
+<div id="loader">Loading...</div>
+
+<div id="warnOverlay" aria-hidden="true">
+  <div class="warnCard" role="dialog" aria-modal="true">
+    <div class="warnTitle">⚠️ Warning from StudyHub staff</div>
+    <div class="warnBody" id="warnText"></div>
+    <div class="warnMeta" id="warnMeta"></div>
+    <div class="warnFooter">
+      <span class="countdown" id="warnCountdown">30</span>
+      <button class="btn primary" id="btnDismissWarning" disabled>Dismiss</button>
+    </div>
+  </div>
+</div>
+
+<header>
+  <div class="brand">Learning Portal</div>
+  <div class="topright">
+    <span class="chip" id="chipUser">Signed out</span>
+    <button class="btn ghost hidden" id="btnSignOut">Sign out</button>
+  </div>
+</header>
+
+<div class="wrap">
+  <!-- Auth -->
+  <div id="authCard" class="card">
+    <h2 style="margin:0 0 8px;">Sign in</h2>
+    <p class="muted" style="margin:0 0 12px;">Use the email + password you were given.</p>
+    <div class="row">
+      <div>
+        <label class="small muted">Email</label>
+        <input id="email" type="email" placeholder="you@example.com" autocomplete="username" />
+      </div>
+      <div>
+        <label class="small muted">Password</label>
+        <input id="password" type="password" placeholder="••••••••" autocomplete="current-password" />
+      </div>
+    </div>
+    <div class="row" style="margin-top:12px;">
+      <button class="btn primary" id="btnLogin">Sign in</button>
+    </div>
+    <div id="authMsg" class="toast"></div>
+  </div>
+
+  <!-- App -->
+  <div id="appShell" class="hidden">
+    <div class="tabs">
+      <button class="tab active" data-view="homeView" id="tabHome">Home</button>
+      <button class="tab" data-view="categoriesView" id="tabCategories">Categories</button>
+      <button class="tab" data-view="settingsView" id="tabSettings">Settings</button>
+      <button class="tab hidden" data-view="staffView" id="tabStaff">Staff Tools</button>
+      <button class="tab hidden" data-view="adminView" id="tabAdmin">Admin</button>
+    </div>
+
+    <div class="divider"></div>
+
+    <section id="homeView" class="card">
+      <h2 style="margin:0 0 6px;">Home</h2>
+      <p class="muted" style="margin:0 0 12px;">Welcome. Use Categories to browse links.</p>
+
+      <div class="divider"></div>
+      <div class="grid">
+        <div class="card" style="box-shadow:none;">
+          <h3 style="margin:0 0 8px;">Account</h3>
+          <div class="small muted">Email</div>
+          <div id="displayEmail" style="word-break:break-word;"></div>
+          <div class="divider"></div>
+          <div class="small muted">Alias</div>
+          <div id="displayAlias"></div>
+          <div class="divider"></div>
+          <div class="small muted">Role</div>
+          <div><span class="pill" id="displayRole">member</span></div>
+          <div class="divider"></div>
+          <div class="small muted">Status</div>
+          <div id="statusLine" class="small muted">OK</div>
+        </div>
+
+        <div class="card" style="box-shadow:none;">
+          <h3 style="margin:0 0 8px;">🔥 Top 5 Most Popular</h3>
+          <div id="topLinks" class="list"></div>
+          <div class="divider"></div>
+          <button class="btn" id="btnRefreshTop">Refresh</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="categoriesView" class="card hidden">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px; flex-wrap:wrap;">
+        <div>
+          <h2 style="margin:0 0 6px;">Categories</h2>
+          <p class="muted" style="margin:0;">Links are public to everyone.</p>
+        </div>
+        <div class="actions">
+          <button class="btn primary hidden" id="btnAddCategory">Add category</button>
+          <button class="btn hidden" id="btnAddLink">Add link</button>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="grid">
+        <div class="card" style="box-shadow:none;">
+          <h3 style="margin:0 0 8px;">Category list</h3>
+          <div id="categoryList" class="list"></div>
+        </div>
+
+        <div class="card" style="box-shadow:none;">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px; flex-wrap:wrap;">
+            <div>
+              <h3 style="margin:0 0 6px;" id="catTitle">Pick a category</h3>
+              <div class="small muted" id="catDesc"></div>
+            </div>
+            <div class="actions" id="catHeaderActions"></div>
+          </div>
+          <div class="divider"></div>
+          <div id="linkList" class="list"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="settingsView" class="card hidden">
+      <h2 style="margin:0 0 6px;">Settings</h2>
+      <p class="muted" style="margin:0 0 12px;">Alias + quick redirect.</p>
+
+      <div class="divider"></div>
+
+      <h3 style="margin:0 0 8px;">Alias</h3>
+      <div class="row">
+        <input id="aliasInput" placeholder="Change alias" maxlength="24" />
+        <button class="btn primary" id="btnSaveAlias">Save</button>
+      </div>
+
+      <div class="divider"></div>
+
+      <h3 style="margin:0 0 8px;">Quick redirect</h3>
+      <div class="row">
+        <input id="redirectUrlInput" placeholder="https://example.com" />
+        <input id="redirectKeyInput" placeholder="Key" maxlength="1" style="max-width:120px;" />
+        <button class="btn" id="btnSaveRedirect">Save</button>
+      </div>
+      <p class="small muted" style="margin-top:8px;">Press your key to redirect (same tab).</p>
+    </section>
+
+    <section id="adminView" class="card hidden">
+      <h2 style="margin:0 0 6px;">Admin</h2>
+      <p class="muted" style="margin:0 0 12px;">
+        Admin-only moderation + logs. (Coadmin/manager limits come next.)
+      </p>
+
+      <div class="divider"></div>
+
+      <div class="grid">
+        <div class="card" style="box-shadow:none;">
+          <h3 style="margin:0 0 8px;">Users (signed in at least once)</h3>
+          <div class="small muted">Tap a user to manage them.</div>
+          <div class="divider"></div>
+          <div id="adminUserList" class="list"></div>
+        </div>
+
+        <div class="card" style="box-shadow:none;">
+          <h3 style="margin:0 0 8px;">Allowlist (pre-login accounts)</h3>
+          <div class="small muted">
+            Manage accounts that exist in Auth but haven’t signed in yet.
+          </div>
+          <div class="divider"></div>
+          <div class="small muted" id="allowDebug" style="margin:6px 0 10px 0;"></div>
+            <div id="adminAllowList" class="list"></div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="card" style="box-shadow:none;">
+        <h3 style="margin:0 0 8px;">Selected user</h3>
+        <div id="adminSelectedMsg" class="toast"></div>
+
+        <div id="adminSelectedCard" class="hidden" style="margin-top:10px;">
+          <div class="row">
+            <div>
+              <div class="small muted">Key</div>
+              <div id="selKey" style="word-break:break-word;"></div>
+            </div>
+            <div>
+              <div class="small muted">Email</div>
+              <div id="selEmail" style="word-break:break-word;"></div>
+            </div>
+            <div>
+              <div class="small muted">Alias</div>
+              <div id="selAlias"></div>
+            </div>
+            <div>
+              <div class="small muted">Role</div>
+              <div><span class="pill" id="selRole"></span></div>
+            </div>
+          </div>
+
+          <div class="divider"></div>
+
+          <h3 style="margin:0 0 8px;">Moderation actions</h3>
+
+          <div class="row">
+            <div>
+              <label class="small muted">Action type</label>
+              <select id="modActionType">
+                <option value="warning">Warning (30s lock)</option>
+                <option value="chatSuspend">Suspend Chat</option>
+                <option value="siteSuspend">Suspend Site</option>
+                <option value="disable">Disable Account (permanent)</option>
+                <option value="unsuspend">Remove Suspensions</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="small muted">Duration (days)</label>
+              <select id="modDays">
+                <option value="0">0 (none)</option>
+                <option value="1">1 day</option>
+                <option value="2">2 days</option>
+                <option value="3">3 days</option>
+                <option value="4">4 days</option>
+                <option value="5">5 days</option>
+                <option value="6">6 days</option>
+                <option value="7">7 days</option>
+              </select>
+              <div class="small muted">Admin: 0–7 days. Disable = permanent.</div>
+            </div>
+          </div>
+
+          <div class="divider"></div>
+
+          <label class="small muted">Reason / message</label>
+          <textarea id="modReason" placeholder="Reason shown in logs. For warnings, message shown to user."></textarea>
+
+          <div class="divider"></div>
+
+          <div class="actions">
+            <button class="btn danger" id="btnApplyMod">Apply</button>
+          </div>
+
+          <div class="divider"></div>
+
+          <h3 style="margin:0 0 8px;">Mod Logs</h3>
+          <div class="actions" style="margin-bottom:8px;">
+            <button class="btn" id="btnRefreshLogs">Refresh logs</button>
+            <button class="btn danger" id="btnClearLogs">Clear ALL logs</button>
+          </div>
+          <div id="adminLogs" class="list"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="staffView" class="card hidden">
+      <h2 style="margin:0 0 6px;">Staff Tools</h2>
+      <p class="muted" style="margin:0 0 12px;">
+        Moderation for managers / coadmins. (Admins can also use this, but have extra powers in the Admin tab.)
+      </p>
+
+      <div class="divider"></div>
+
+      <div class="grid">
+        
+        <div class="card" style="box-shadow:none;">
+          <h3 style="margin:0;">Find a member</h3>
+          <div class="muted small" style="margin-top:6px;">Search by member email. This panel only moderates <b>members</b> (not staff). The user must have signed in at least once to appear in Firestore.</div>
+
+          <div style="display:flex; gap:10px; margin-top:10px; align-items:center;">
+            <input id="staffFindEmail" class="input" placeholder="member@example.com" style="flex:1;" autocomplete="off" />
+            <button class="btn" id="btnStaffFind">Find</button>
+          </div>
+
+          <div id="staffFindMsg" class="muted small" style="margin-top:8px;"></div>
+
+          <div class="divider"></div>
+
+          <div class="muted small">Result</div>
+          <div id="staffUserList" class="list"></div>
+        </div>
+
+        <div class="card" style="box-shadow:none;">
+          <h3 style="margin:0 0 8px;">Selected user</h3>
+          <div id="staffSelectedMsg" class="toast"></div>
+
+          <div id="staffSelectedCard" class="hidden" style="margin-top:10px;">
+            <div class="row">
+              <div>
+                <div class="small muted">Email</div>
+                <div id="staffSelEmail" style="word-break:break-word;"></div>
+              </div>
+              <div>
+                <div class="small muted">Alias</div>
+                <div id="staffSelAlias"></div>
+              </div>
+              <div>
+                <div class="small muted">Role</div>
+                <div><span class="pill" id="staffSelRole"></span></div>
+              </div>
+            </div>
+
+            <div class="divider"></div>
+
+            <h3 style="margin:0 0 8px;">Moderation actions</h3>
+
+            <div class="row">
+              <div>
+                <label class="small muted">Action type</label>
+                <select id="staffModActionType">
+                  <option value="warning">Warning (30s lock)</option>
+                  <option value="chatSuspend">Suspend Chat</option>
+                  <option value="siteSuspend">Suspend Site</option>
+                  <option value="unsuspend">Remove Suspensions</option>
+                </select>
+              </div>
+
+              <div>
+                <label class="small muted">Duration (days)</label>
+                <select id="staffModDays"></select>
+ect>
+                <div class="small muted" id="staffLimits"></div>
+              </div>
+            </div>
+
+            <div class="divider"></div>
+
+            <label class="small muted">Reason / message</label>
+            <textarea id="staffModReason" placeholder="Reason shown in logs. For warnings, message shown to user."></textarea>
+
+            <div class="divider"></div>
+
+            <div class="actions">
+              <button class="btn danger" id="btnApplyStaffMod">Apply</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<script>
+/* ===== Firebase config (yours) ===== */
+const firebaseConfig = {
+  apiKey: "AIzaSyCBj78TuU8hviaYMILXkXIzNtU8yIgk39c",
+  authDomain: "learning-resources-2026.firebaseapp.com",
+  projectId: "learning-resources-2026",
+  storageBucket: "learning-resources-2026.firebasestorage.app",
+  messagingSenderId: "67701812368",
+  appId: "1:67701812368:web:2917778d06903737347c15"
+};
+
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+
+/* ===== Helpers ===== */
+const $ = (id) => document.getElementById(id);
+function showLoader(msg){ const el = $("loader"); if (msg) el.textContent = msg; el.style.display = "flex"; }
+function hideLoader(){ $("loader").style.display = "none"; }
+function setAuthMsg(text, isError=false){ const el = $("authMsg"); el.textContent = text || ""; el.style.color = isError ? "#ef4444" : ""; }
+function escapeHtml(str){
+  return String(str ?? "").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;");
+}
+function nowMs(){ return Date.now(); }
+function msFromDays(days){ return Math.max(0, Number(days||0)) * 24*60*60*1000; }
+
+/* ===== Roles ===== */
+const ROLE_RANK = { member:1, contributor:2, manager:3, coadmin:4, admin:5 };
+function normRole(role){
+  return String(role||"member").toLowerCase().replace(/[^a-z]/g, "");
+}
+function rank(role){ return ROLE_RANK[normRole(role)] || 1; }
+function roleRank(role){ return rank(role); }
+function isAdmin(){ return rank(currentUserData?.role) >= 5; }
+
+/* ===== Global state ===== */
+let currentUser = null;
+let currentUserData = null;
+let unsubUserDoc = null;
+let warningTimer = null;
+let warningSecondsLeft = 0;
+let warningOverlayVisible = false;
+let currentWarningSignature = "";
+
+let selectedCategoryId = null;
+let selectedCategoryData = null;
+
+/* ===== Tabs / views ===== */
+const tabs = Array.from(document.querySelectorAll(".tab"));
+function showView(viewId){
+  const viewIds = ["homeView","categoriesView","settingsView","staffView","adminView"];
+  viewIds.forEach(id => $(id).classList.toggle("hidden", id !== viewId));
+  tabs.forEach(t => t.classList.toggle("active", t.dataset.view === viewId));
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+tabs.forEach(t => t.addEventListener("click", () => {
+  if (t.classList.contains("hidden")) return;
+  showView(t.dataset.view);
+}));
+
+function updateRoleUI(){
+  const r = (currentUserData?.role || "member").toLowerCase();
+  $("tabStaff").classList.toggle("hidden", roleRank(r) < 3);
+  $("tabAdmin").classList.toggle("hidden", !isAdmin());
+  $("btnAddCategory").classList.toggle("hidden", !isAdmin());
+  $("btnAddLink").classList.toggle("hidden", !(isAdmin() && !!selectedCategoryId));
+}
+
+/* ===== Auth ===== */
+$("btnLogin").addEventListener("click", async () => {
+  const email = ($("email").value || "").trim();
+  const password = $("password").value || "";
+  if (!email || !password){ setAuthMsg("Enter email and password.", true); return; }
+  showLoader("Signing in...");
+  setAuthMsg("");
+  try{ await auth.signInWithEmailAndPassword(email, password); }
+  catch(e){ setAuthMsg(e.message || "Sign-in failed.", true); }
+  finally{ hideLoader(); }
+});
+$("btnSignOut").addEventListener("click", () => auth.signOut());
+
+
+
+/* ===== Allowlist gate (pre-login accounts) ===== */
+async function getAllowlist(emailLower){
+  const ref = db.collection("allowlist").doc(emailLower);
+  const snap = await ref.get();
+  return { ref, exists: snap.exists, data: snap.exists ? (snap.data()||{}) : null };
+}
+
+/* ===== Ensure user doc ===== */
+async function ensureUserDoc(user, allowData){
+  const ref = db.collection("users").doc(user.uid);
+  const snap = await ref.get();
+  const base = {
+    role: (allowData?.role || "member").toLowerCase(),
+    alias: (allowData?.alias || (user.email || "user").split("@")[0]).toLowerCase(),
+    quickRedirect: allowData?.quickRedirect || "",
+    redirectKey: (allowData?.redirectKey || "").toLowerCase(),
+    disabled: !!allowData?.disabled,
+    chatSuspendedUntil: allowData?.chatSuspendedUntil || null,
+    siteSuspendedUntil: allowData?.siteSuspendedUntil || null,
+    warningsCount: Number(allowData?.warningsCount || 0),
+    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    email: user.email || "",
+    emailLower: (user.email || "").toLowerCase()
+  };
+  if (!snap.exists){
+    await ref.set(base, { merge:true });
+    return (await ref.get()).data();
+  }
+  await ref.set({
+    email: user.email || "",
+    emailLower: (user.email || "").toLowerCase(),
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+  }, { merge:true });
+  return (await ref.get()).data();
+}
+
+/* ===== Warning overlay ===== */
+function showWarningOverlay(payload){
+  if (!payload) return;
+
+  // Build a signature so the same warning doesn't keep restarting the timer
+  const sig = JSON.stringify({
+    message: payload.message || "",
+    by: payload.byAlias || payload.byEmail || "",
+    ts: payload.ts ? String(payload.ts) : ""
+  });
+
+  if (warningOverlayVisible && sig === currentWarningSignature){
+    // Same warning already showing — do NOT restart countdown
+    return;
+  }
+
+  currentWarningSignature = sig;
+  warningOverlayVisible = true;
+
+  const msg = payload.message || "You received a warning.";
+  const by = payload.byAlias || payload.byEmail || "staff";
+  const ts = payload.ts ? new Date(payload.ts).toLocaleString() : "";
+  $("warnText").textContent = msg;
+  $("warnMeta").textContent = `Issued by: ${by}${ts ? " • " + ts : ""}`;
+  $("warnOverlay").style.display = "flex";
+  $("warnOverlay").setAttribute("aria-hidden","false");
+
+  warningSecondsLeft = 30;
+  $("warnCountdown").textContent = String(warningSecondsLeft);
+  $("btnDismissWarning").disabled = true;
+
+  if (warningTimer) clearInterval(warningTimer);
+  warningTimer = setInterval(() => {
+    warningSecondsLeft = Math.max(0, warningSecondsLeft - 1);
+    $("warnCountdown").textContent = String(warningSecondsLeft);
+    if (warningSecondsLeft <= 0){
+      clearInterval(warningTimer);
+      warningTimer = null;
+      $("btnDismissWarning").disabled = false;
+      // Keep overlay open until user dismisses; do not clear warning automatically.
+    }
+  }, 1000);
+}
+async function dismissWarning(){
+  warningOverlayVisible = false;
+  currentWarningSignature = "";
+
+  $("warnOverlay").style.display = "none";
+  $("warnOverlay").setAttribute("aria-hidden","true");
+  if (currentUser){
+    try{
+      await db.collection("users").doc(currentUser.uid).set({
+        activeWarning: firebase.firestore.FieldValue.delete(),
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      }, { merge:true });
+    }catch(_){}
+  }
+}
+$("btnDismissWarning").addEventListener("click", () => {
+  if ($("btnDismissWarning").disabled) return;
+  dismissWarning();
+});
+
+/* ===== Enforcement (immediate actions) ===== */
+function isUntilActive(until){
+  try{
+    if (!until) return false;
+    const d = until.toDate ? until.toDate() : (until instanceof Date ? until : null);
+    if (!d) return false;
+    return d.getTime() > nowMs();
+  }catch{ return false; }
+}
+function untilString(until){
+  try{
+    if (!until) return "";
+    const d = until.toDate ? until.toDate() : (until instanceof Date ? until : null);
+    return d ? d.toLocaleString() : "";
+  }catch{ return ""; }
+}
+async function enforceUserState(userData){
+  if (userData?.disabled){
+    alert("Your account is disabled.");
+    await auth.signOut();
+    return;
+  }
+  if (isUntilActive(userData?.siteSuspendedUntil)){
+    alert("You are suspended from the site until: " + untilString(userData.siteSuspendedUntil));
+    await auth.signOut();
+    return;
+  }
+  const chatSusp = isUntilActive(userData?.chatSuspendedUntil);
+  $("statusLine").innerHTML = chatSusp
+    ? `<span class="dangerText">Chat suspended until ${escapeHtml(untilString(userData.chatSuspendedUntil))}</span>`
+    : "OK";
+
+  if (userData?.activeWarning){
+    showWarningOverlay({
+      message: userData.activeWarning.message || "You received a warning.",
+      byAlias: userData.activeWarning.byAlias || "",
+      byEmail: userData.activeWarning.byEmail || "",
+      ts: userData.activeWarning.issuedAt ? (userData.activeWarning.issuedAt.toDate ? userData.activeWarning.issuedAt.toDate() : null) : null
+    });
+  }
+}
+
+/* ===== Popular ===== */
+async function loadTopLinks(){
+  const box = $("topLinks");
+  box.innerHTML = `<div class="muted small">Loading...</div>`;
+  const snap = await db.collection("links").orderBy("clicks","desc").limit(5).get();
+  box.innerHTML = "";
+  if (snap.empty){ box.innerHTML = `<div class="muted small">No link stats yet.</div>`; return; }
+  snap.forEach(doc => {
+    const d = doc.data() || {};
+    const clicks = Number(d.clicks || 0);
+    const row = document.createElement("div");
+    row.className = "item";
+    row.innerHTML = `
+      <div style="min-width:0;">
+        <div class="title">${escapeHtml(d.title || "Untitled")} <span class="pill">${clicks}</span></div>
+        <div class="desc">${escapeHtml(d.url || "")}</div>
+      </div>
+    `;
+    box.appendChild(row);
+  });
+}
+$("btnRefreshTop").addEventListener("click", () => loadTopLinks().catch(()=>{}));
+
+/* ===== Categories + links ===== */
+async function loadCategories(){
+  const list = $("categoryList");
+  list.innerHTML = "";
+  const snap = await db.collection("brands").orderBy("name").get();
+  if (snap.empty){
+    list.innerHTML = `<div class="muted small">No categories yet.</div>`;
+    selectedCategoryId = null;
+    selectedCategoryData = null;
+    renderCategoryHeader();
+    $("linkList").innerHTML = `<div class="muted small">Pick a category.</div>`;
+    updateRoleUI();
+    return;
+  }
+
+  snap.forEach(doc => {
+    const d = doc.data() || {};
+    const row = document.createElement("div");
+    row.className = "item";
+    row.innerHTML = `
+      <div style="min-width:0;">
+        <div class="title">${escapeHtml(d.name || doc.id)}</div>
+        <div class="desc">${escapeHtml(d.description || "")}</div>
+      </div>
+      <div class="actions"></div>
+    `;
+
+    row.addEventListener("click", () => {
+      selectedCategoryId = doc.id;
+      selectedCategoryData = d;
+      renderCategoryHeader();
+      updateRoleUI();
+      loadLinksForCategory(doc.id);
+    });
+
+    if (isAdmin()){
+      const actions = row.querySelector(".actions");
+      const editBtn = document.createElement("button");
+      editBtn.className = "btn";
+      editBtn.textContent = "Edit";
+      editBtn.addEventListener("click", async (e) => { e.stopPropagation(); await editCategory(doc.id, d); });
+
+      const delBtn = document.createElement("button");
+      delBtn.className = "btn danger";
+      delBtn.textContent = "Delete";
+      delBtn.addEventListener("click", async (e) => { e.stopPropagation(); await deleteCategoryCascade(doc.id); });
+
+      actions.appendChild(editBtn);
+      actions.appendChild(delBtn);
+    }
+    list.appendChild(row);
+  });
+
+  if (!selectedCategoryId){
+    const first = snap.docs[0];
+    selectedCategoryId = first.id;
+    selectedCategoryData = first.data();
+    renderCategoryHeader();
+    updateRoleUI();
+    await loadLinksForCategory(first.id);
+  } else {
+    updateRoleUI();
+  }
+}
+
+function renderCategoryHeader(){
+  if (!selectedCategoryId){
+    $("catTitle").textContent = "Pick a category";
+    $("catDesc").textContent = "";
+    $("catHeaderActions").innerHTML = "";
+    return;
+  }
+  $("catTitle").textContent = selectedCategoryData?.name || selectedCategoryId;
+  $("catDesc").textContent = selectedCategoryData?.description || "";
+
+  const actions = $("catHeaderActions");
+  actions.innerHTML = "";
+  if (isAdmin()){
+    const editBtn = document.createElement("button");
+    editBtn.className = "btn";
+    editBtn.textContent = "Edit category";
+    editBtn.addEventListener("click", async () => editCategory(selectedCategoryId, selectedCategoryData || {}));
+    actions.appendChild(editBtn);
+  }
+}
+
+async function loadLinksForCategory(categoryId){
+  const list = $("linkList");
+  list.innerHTML = `<div class="muted small">Loading links...</div>`;
+  try{
+    const snap = await db.collection("links").where("categoryId","==",categoryId).orderBy("title").get();
+    renderLinksDocs(snap.docs, categoryId);
+  }catch(e){
+    const snap = await db.collection("links").where("categoryId","==",categoryId).get();
+    const docs = snap.docs.slice().sort((a,b)=>{
+      const ta=(a.data()?.title||"").toLowerCase(); const tb=(b.data()?.title||"").toLowerCase();
+      return ta.localeCompare(tb);
+    });
+    renderLinksDocs(docs, categoryId);
+  }
+}
+
+function renderLinksDocs(docs, categoryId){
+  const list = $("linkList");
+  list.innerHTML = "";
+  if (!docs.length){
+    list.innerHTML = `<div class="muted small">No links in this category yet.</div>`;
+    return;
+  }
+  docs.forEach(doc => {
+    const d = doc.data() || {};
+    const clicks = Number(d.clicks || 0);
+    const row = document.createElement("div");
+    row.className = "item";
+    row.innerHTML = `
+      <div style="min-width:0;">
+        <div class="title">${escapeHtml(d.title || "Untitled")} <span class="pill">${clicks} clicks</span></div>
+        <div class="desc">${escapeHtml(d.url || "")}</div>
+      </div>
+      <div class="actions"></div>
+    `;
+
+    row.addEventListener("click", () => {
+      const url = d.url || "";
+      if (url) window.open(url, "_blank", "noopener,noreferrer");
+      doc.ref.set({ clicks: firebase.firestore.FieldValue.increment(1) }, { merge:true }).catch(()=>{});
+      loadTopLinks().catch(()=>{});
+    });
+
+    if (isAdmin()){
+      const actions = row.querySelector(".actions");
+      const editBtn = document.createElement("button");
+      editBtn.className = "btn";
+      editBtn.textContent = "Edit";
+      editBtn.addEventListener("click", async (e) => { e.stopPropagation(); await editLink(doc.id, d); });
+
+      const delBtn = document.createElement("button");
+      delBtn.className = "btn danger";
+      delBtn.textContent = "Delete";
+      delBtn.addEventListener("click", async (e) => { e.stopPropagation(); await deleteLink(doc.id, categoryId); });
+
+      actions.appendChild(editBtn);
+      actions.appendChild(delBtn);
+    }
+    list.appendChild(row);
+  });
+}
+
+async function addCategory(){
+  const name = prompt("Category name:");
+  if (!name) return;
+  const description = prompt("Description (optional):") || "";
+  const id = name.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/(^-|-$)/g,"").slice(0,60) || ("cat-" + Date.now());
+  showLoader("Creating category...");
+  try{
+    await db.collection("brands").doc(id).set({ name, description, createdAt: firebase.firestore.FieldValue.serverTimestamp(), updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge:true });
+    selectedCategoryId = id; selectedCategoryData = { name, description };
+    await loadCategories();
+  }finally{ hideLoader(); }
+}
+
+async function editCategory(id, d){
+  const name = prompt("Edit category name:", d.name || id);
+  if (name === null) return;
+  const description = prompt("Edit description:", d.description || "") ?? "";
+  showLoader("Saving category...");
+  try{
+    await db.collection("brands").doc(id).set({ name, description, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge:true });
+    if (selectedCategoryId === id){ selectedCategoryData = { ...(selectedCategoryData||{}), name, description }; renderCategoryHeader(); }
+    await loadCategories();
+  }finally{ hideLoader(); }
+}
+
+async function deleteCategoryCascade(categoryId){
+  if (!confirm("Delete this category AND all links inside it?")) return;
+  showLoader("Deleting category...");
+  try{
+    const snap = await db.collection("links").where("categoryId","==",categoryId).get();
+    const batch = db.batch();
+    snap.docs.forEach(d => batch.delete(d.ref));
+    batch.delete(db.collection("brands").doc(categoryId));
+    await batch.commit();
+
+    if (selectedCategoryId === categoryId){ selectedCategoryId = null; selectedCategoryData = null; }
+    await loadCategories();
+    await loadTopLinks();
+
+    // staff tools (manager/coadmin/admin)
+    if (roleRank(currentUserData.role) >= 3){
+      startStaffTools();
+      $("staffSelectedCard").classList.add("hidden");
+      setStaffMsg("Select a user to moderate.");
+    }
+  }finally{ hideLoader(); }
+}
+
+async function addLink(){
+  if (!selectedCategoryId) return alert("Pick a category first.");
+  const title = prompt("Link title:");
+  if (!title) return;
+  const url = prompt("URL (include https://):");
+  if (!url) return;
+  showLoader("Adding link...");
+  try{
+    await db.collection("links").add({ title, url, categoryId: selectedCategoryId, clicks: 0, createdAt: firebase.firestore.FieldValue.serverTimestamp(), updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+    await loadLinksForCategory(selectedCategoryId);
+    await loadTopLinks();
+  }finally{ hideLoader(); }
+}
+
+async function editLink(id, d){
+  const title = prompt("Edit title:", d.title || "");
+  if (title === null) return;
+  const url = prompt("Edit URL:", d.url || "");
+  if (url === null) return;
+  showLoader("Saving link...");
+  try{
+    await db.collection("links").doc(id).set({ title, url, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge:true });
+    if (selectedCategoryId) await loadLinksForCategory(selectedCategoryId);
+    await loadTopLinks();
+  }finally{ hideLoader(); }
+}
+
+async function deleteLink(id, categoryId){
+  if (!confirm("Delete this link?")) return;
+  showLoader("Deleting link...");
+  try{
+    await db.collection("links").doc(id).delete();
+    if (categoryId) await loadLinksForCategory(categoryId);
+    await loadTopLinks();
+  }finally{ hideLoader(); }
+}
+
+$("btnAddCategory").addEventListener("click", addCategory);
+$("btnAddLink").addEventListener("click", addLink);
+
+/* ===== Settings ===== */
+$("btnSaveAlias").addEventListener("click", async () => {
+  if (!currentUser) return;
+  const alias = ($("aliasInput").value || "").trim().toLowerCase();
+  if (!alias) return alert("Alias cannot be empty.");
+  showLoader("Saving...");
+  try{
+    await db.collection("users").doc(currentUser.uid).set({ alias, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge:true });
+  }finally{ hideLoader(); }
+});
+$("btnSaveRedirect").addEventListener("click", async () => {
+  if (!currentUser) return;
+  const url = ($("redirectUrlInput").value || "").trim();
+  const key = ($("redirectKeyInput").value || "").trim().toLowerCase();
+  if (!url) return alert("Enter a redirect URL.");
+  if (!key) return alert("Enter a key (1 character).");
+  showLoader("Saving...");
+  try{
+    await db.collection("users").doc(currentUser.uid).set({ quickRedirect: url, redirectKey: key, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge:true });
+  }finally{ hideLoader(); }
+});
+document.addEventListener("keydown", (e) => {
+  const key = (currentUserData?.redirectKey || "").toLowerCase();
+  const url = currentUserData?.quickRedirect || "";
+  if (!key || !url) return;
+  if (e.key && e.key.toLowerCase() === key){ window.location.href = url; }
+});
+
+/* ===== Staff moderation (manager/coadmin/admin) ===== */
+let staffSelected = null; // { key: userDocId, data }
+
+function actorRole(){ return normRole(currentUserData?.role || "member"); }
+function staffMaxDays(role){
+  role = normRole(role||"member");
+  if (role === "admin") return 7;
+  if (role === "coadmin") return 4;
+  if (role === "manager") return 2;
+  return 0;
+}
+function canModerate(actor, target){
+  actor = normRole(actor||"member");
+  target = normRole(target||"member");
+  if (actor === "admin") return target !== "admin";
+  if (actor === "coadmin") return target === "member";   // coadmin can only moderate members
+  if (actor === "manager") return target === "member";   // manager can only moderate members
+  return false;
+}
+
+function setStaffMsg(msg, isErr=false){
+  const el = $("staffSelectedMsg");
+  el.textContent = msg || "";
+  el.style.color = isErr ? "#ef4444" : "";
+}
+
+function refreshStaffDays(){
+  const role = actorRole();
+  const max = staffMaxDays(role);
+  const sel = $("staffModDays");
+  sel.innerHTML = "";
+  for (let d=1; d<=Math.max(1,max); d++){
+    const o = document.createElement("option");
+    o.value = String(d);
+    o.textContent = String(d);
+    sel.appendChild(o);
+  }
+  $("staffLimits").textContent = (max>0)
+    ? `Your limit: up to ${max} day${max===1?"":"s"} (${role}).`
+    : `No moderation permissions (${role}).`;
+
+  const type = $("staffModActionType").value;
+  sel.disabled = (type === "warning" || type === "unsuspend");
+}
+$("staffModActionType").addEventListener("change", refreshStaffDays);
+
+function selectStaffUser(key, data){
+  staffSelected = { key, data: data||{} };
+  $("staffSelectedCard").classList.remove("hidden");
+  $("staffSelEmail").textContent = data.email || "";
+  $("staffSelAlias").textContent = data.alias || "";
+  $("staffSelRole").textContent = (data.role || "member").toLowerCase();
+  setStaffMsg(`Selected: ${data.email || key}`);
+  refreshStaffDays();
+}
+
+async function applyStaffMod(){
+  const role = actorRole();
+  if (roleRank(role) < 3) return setStaffMsg("No moderation permissions.", true);
+  if (!staffSelected) return setStaffMsg("Select a user first.", true);
+  const targetRole = (staffSelected.data.role || "member").toLowerCase();
+  if (!canModerate(role, targetRole)) return setStaffMsg(`You can't moderate role: ${targetRole}`, true);
+
+  const type = $("staffModActionType").value;
+  const reason = ($("staffModReason").value || "").trim();
+  const ref = db.collection("users").doc(staffSelected.key);
+  try{
+    if (type === "warning"){
+      if (!reason) return setStaffMsg("Enter a warning message.", true);
+      await ref.set({
+        warningsCount: firebase.firestore.FieldValue.increment(1),
+        activeWarning: {
+          message: reason,
+          byEmail: (currentUser?.email || ""),
+          byAlias: (currentUserData?.alias || ""),
+          issuedAt: firebase.firestore.FieldValue.serverTimestamp()
+        },
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      }, { merge:true });
+      await writeModLog({ action:"warning", targetUid: staffSelected.key, targetEmail: staffSelected.data.email || "", message: reason });
+      $("staffModReason").value = "";
+      return setStaffMsg("Warning sent.");
+    }
+
+    if (type === "unsuspend"){
+      await ref.set({ chatSuspendedUntil: null, siteSuspendedUntil: null }, { merge:true });
+      await writeModLog({ action:"unsuspend", targetUid: staffSelected.key, targetEmail: staffSelected.data.email || "" });
+      return setStaffMsg("Suspensions cleared.");
+    }
+
+    const max = staffMaxDays(role);
+    const days = Number($("staffModDays").value || 0);
+    if (!days || days <= 0) return setStaffMsg("Pick a valid duration.", true);
+    if (days > max) return setStaffMsg(`Your max is ${max} day(s).`, true);
+    const until = untilTimestampFromDays(days);
+    const patch = {};
+    if (type === "chatSuspend") patch.chatSuspendedUntil = until;
+    if (type === "siteSuspend") patch.siteSuspendedUntil = until;
+    await ref.set(patch, { merge:true });
+    await writeModLog({ action:type, days, targetUid: staffSelected.key, targetEmail: staffSelected.data.email || "" , reason });
+    $("staffModReason").value = "";
+    return setStaffMsg(`Applied ${type} for ${days} day(s).`);
+  }catch(e){
+    console.error(e);
+    return setStaffMsg("Failed (check console / rules).", true);
+  }
+}
+
+$("btnApplyStaffMod").addEventListener("click", applyStaffMod);
+
+
+function startStaffTools(){
+  // Prevent double-init on role/doc updates
+  if (window.__staffStarted) return;
+  window.__staffStarted = true;
+
+  refreshStaffDays();
+
+  // Bind search once
+  if (!window.__staffFindBound) {
+    window.__staffFindBound = true;
+    const btn = $("btnStaffFind");
+    const inp = $("staffFindEmail");
+    if (btn) btn.addEventListener("click", () => staffFindMember().catch(err => console.error(err)));
+    if (inp) inp.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") { e.preventDefault(); staffFindMember().catch(err => console.error(err)); }
+    });
+  }
+
+  // Reset UI state
+  staffSelected = null;
+  if ($("staffFindEmail")) $("staffFindEmail").value = "";
+  if ($("staffFindMsg")) $("staffFindMsg").textContent = "Type a member email and click Find.";
+  if ($("staffUserList")) $("staffUserList").innerHTML = "";
+  $("staffSelectedCard").classList.add("hidden");
+  setStaffMsg("Select a user to moderate.");
+}
+
+function setStaffFindMsg(msg, isError=false){
+  const el = $("staffFindMsg");
+  if (!el) return;
+  el.textContent = msg || "";
+  el.style.color = isError ? "var(--danger)" : "var(--muted)";
+}
+
+
+
+async function staffFindMember(){
+  if (!db) { setStaffFindMsg("Database not ready.", true); return; }
+
+  const role = actorRole();
+  if (roleRank(role) < 3){
+    setStaffFindMsg("No moderation permissions for your role.", true);
+    return;
+  }
+
+  const raw = ($("staffFindEmail")?.value || "").trim().toLowerCase();
+  if (!raw) { setStaffFindMsg("Enter a member email.", true); return; }
+
+  // Never allow moderating yourself.
+  if (currentUser?.email && raw === String(currentUser.email).toLowerCase()) {
+    setStaffFindMsg("You can’t moderate your own account here.", true);
+    return;
+  }
+
+  setStaffFindMsg("Searching…");
+
+  // Clear result list + selection
+  $("staffUserList").innerHTML = "";
+  staffSelected = null;
+  $("staffSelectedCard").classList.add("hidden");
+  setStaffMsg("Select a user to moderate.");
+
+  // Try users.emailLower first (recommended), then users.email fallback.
+  let snap = await db.collection("users").where("emailLower", "==", raw).limit(1).get().catch(() => null);
+  if (!snap || snap.empty) {
+    snap = await db.collection("users").where("email", "==", raw).limit(1).get().catch(() => null);
+  }
+
+  if (!snap || snap.empty) {
+    setStaffFindMsg("No matching member found in Firestore users. They may need to sign in once first.", true);
+    $("staffUserList").innerHTML = `<div class="muted small">No results.</div>`;
+    return;
+  }
+
+  const docu = snap.docs[0];
+  const data = docu.data() || {};
+  const targetRole = normRole(data.role || "member");
+
+  // Staff tools only moderate members
+  if (targetRole !== "member") {
+    setStaffFindMsg("That email belongs to a staff account. Staff tools can only moderate members.", true);
+    $("staffUserList").innerHTML = `<div class="muted small">No results.</div>`;
+    return;
+  }
+
+  // Permission check (manager/coadmin/admin)
+  if (!canModerate(role, targetRole)) {
+    setStaffFindMsg("You don’t have permission to moderate this user.", true);
+    $("staffUserList").innerHTML = `<div class="muted small">No results.</div>`;
+    return;
+  }
+
+  // Render single result (click to select)
+  const box = $("staffUserList");
+  const row = document.createElement("button");
+  row.type = "button";
+  row.className = "listItem";
+  row.innerHTML = `
+    <div style="display:flex; justify-content:space-between; gap:10px; align-items:center; width:100%;">
+      <div style="min-width:0; text-align:left;">
+        <div class="small" style="font-weight:800; word-break:break-word;">${escapeHtml(data.email || raw)}</div>
+        <div class="small muted">${escapeHtml(data.alias || "")}</div>
+      </div>
+      <span class="pill">member</span>
+    </div>
+  `;
+  row.addEventListener("click", () => selectStaffUser(docu.id, { ...data, email: data.email || raw, role: "member" }));
+  box.appendChild(row);
+
+  setStaffFindMsg("Member found. Tap them below to select.");
+}
+
+ /* ===== Admin moderation ===== */
+let selectedTarget = null; // { type:'users'|'allowlist', key, data }
+function setAdminSelectedMsg(msg, isErr=false){
+  const el = $("adminSelectedMsg");
+  el.textContent = msg || "";
+  el.style.color = isErr ? "#ef4444" : "";
+}
+function selectTarget(type, key, data){
+  selectedTarget = { type, key, data: data||{} };
+  $("adminSelectedCard").classList.remove("hidden");
+  $("selKey").textContent = key;
+  $("selEmail").textContent = data.email || data.emailLower || "(unknown)";
+  $("selAlias").textContent = data.alias || "";
+  $("selRole").textContent = (data.role || "member").toLowerCase();
+  setAdminSelectedMsg("Selected: " + (data.email || data.emailLower || key));
+  loadLogs().catch(()=>{});
+}
+
+async function writeModLog(entry){
+  const payload = Object.assign({
+    ts: firebase.firestore.FieldValue.serverTimestamp(),
+    actorUid: currentUser?.uid || "",
+    actorEmail: currentUser?.email || "",
+    actorAlias: currentUserData?.alias || "",
+    actorRole: currentUserData?.role || "member"
+  }, entry || {});
+  await db.collection("modLogs").add(payload);
+}
+
+function untilTimestampFromDays(days){
+  const d = Number(days||0);
+  if (!d) return null;
+  return firebase.firestore.Timestamp.fromMillis(nowMs() + msFromDays(d));
+}
+
+async function loadAdminLists(){
+  if (!isAdmin()) return;
+  const usersBox = $("adminUserList");
+  const allowBox = $("adminAllowList");
+  usersBox.innerHTML = `<div class="muted small">Loading...</div>`;
+  allowBox.innerHTML = `<div class="muted small">Loading...</div>`;
+
+  try{
+    let snap;
+    try{
+      snap = await db.collection("users").orderBy("emailLower").limit(200).get();
+    }catch(_){
+      snap = await db.collection("users").limit(200).get();
+    }
+    const udocs = snap.docs.slice().sort((a,b)=>{
+      const ea = ((a.data()?.emailLower) || a.id || "").toLowerCase();
+      const eb = ((b.data()?.emailLower) || b.id || "").toLowerCase();
+      return ea.localeCompare(eb);
+    });
+    usersBox.innerHTML = udocs.length ? "" : `<div class="muted small">No user docs yet.</div>`;
+    udocs.forEach(doc => {
+      const d = doc.data() || {};
+      const disabled = !!d.disabled;
+      const row = document.createElement("div");
+      row.className = "item";
+      row.innerHTML = `
+        <div style="min-width:0;">
+          <div class="title">${escapeHtml(d.emailLower || d.email || doc.id)} ${disabled ? '<span class="pill">disabled</span>' : ''}</div>
+          <div class="desc">alias: ${escapeHtml(d.alias || "")} • role: ${escapeHtml(String(d.role||d.roles||"member").toLowerCase())}</div>
+        </div>
+        <div class="actions"><span class="pill">users</span></div>
+      `;
+      row.addEventListener("click", () => selectTarget("users", doc.id, d));
+      usersBox.appendChild(row);
+    });
+  }catch(e){
+    console.error(e);
+    usersBox.innerHTML = `<div class="muted small">Failed to load users.</div>`;
+  }
+
+  try{
+    let snap;
+    snap = await db.collection("allowlist").get();
+    const docs = snap.docs.slice().sort((a,b)=>{
+      const ea = ((a.data()?.emailLower) || a.id || "").toLowerCase();
+      const eb = ((b.data()?.emailLower) || b.id || "").toLowerCase();
+      return ea.localeCompare(eb);
+    });
+    allowBox.innerHTML = docs.length ? "" : `<div class="muted small">No allowlist entries yet.</div>`;
+    // Diagnostics (helps you verify you're writing to the same DB/collection)
+    try{
+      const myEmailLower = (currentUser?.email || "").toLowerCase().trim();
+      let myExists = false;
+      if (myEmailLower){
+        const me = await db.collection("allowlist").doc(myEmailLower).get();
+        myExists = me.exists;
+      }
+      $("allowDebug").textContent = `Allowlist loaded: ${docs.length} docs. Your allowlist doc exists: ${myExists ? "yes" : "no"} (doc id = ${ (currentUser?.email||"").toLowerCase().trim() || "n/a" })`;
+    }catch(e){
+      $("allowDebug").textContent = `Allowlist loaded: ${docs.length} docs. (Debug check failed)`;
+    }
+
+    docs.forEach(doc => {
+      const d = doc.data() || {};
+      const disabled = !!d.disabled;
+      const row = document.createElement("div");
+      row.className = "item";
+      row.innerHTML = `
+        <div style="min-width:0;">
+          <div class="title">${escapeHtml(d.emailLower || doc.id)} ${disabled ? '<span class="pill">disabled</span>' : ''}</div>
+          <div class="desc">alias: ${escapeHtml(d.alias || "")} • role: ${escapeHtml(String(d.role||d.roles||"member").toLowerCase())}</div>
+        </div>
+        <div class="actions"><span class="pill">allowlist</span></div>
+      `;
+      row.addEventListener("click", () => selectTarget("allowlist", doc.id, d));
+      allowBox.appendChild(row);
+    });
+  }catch(e){
+    console.error(e);
+    allowBox.innerHTML = `<div class="muted small">Failed to load allowlist: ${escapeHtml(e && e.message ? e.message : "unknown error")}</div>`;
+    $("allowDebug").textContent = "Allowlist error.";
+  }
+}
+
+async function applyModeration(){
+  if (!isAdmin()) return;
+  if (!selectedTarget) return setAdminSelectedMsg("Select a user first.", true);
+
+  const action = ($("modActionType").value || "").trim();
+  const days = Number(($("modDays").value || "0"));
+  const reason = ($("modReason").value || "").trim();
+
+  if ((action === "chatSuspend" || action === "siteSuspend") && (days < 0 || days > 7)){
+    return setAdminSelectedMsg("Admin suspensions must be 0–7 days.", true);
+  }
+
+  showLoader("Applying...");
+  try{
+    const t = selectedTarget;
+    const targetRef = db.collection(t.type).doc(t.key);
+
+    if (action === "warning"){
+      const w = {
+        message: reason || "You received a warning.",
+        byEmail: currentUser?.email || "",
+        byAlias: currentUserData?.alias || "",
+        issuedAt: firebase.firestore.FieldValue.serverTimestamp()
+      };
+      if (t.type === "users"){
+        await targetRef.set({
+          warningsCount: firebase.firestore.FieldValue.increment(1),
+          activeWarning: w,
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge:true });
+      } else {
+        await targetRef.set({
+          warningsCount: firebase.firestore.FieldValue.increment(1),
+          pendingWarning: w,
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge:true });
+      }
+      await writeModLog({ action:"warning", targetType:t.type, targetKey:t.key, targetEmail:t.data.email||t.data.emailLower||"", days:0, reason: reason || "" });
+      setAdminSelectedMsg("Warning sent.");
+    }
+
+    if (action === "chatSuspend"){
+      const until = untilTimestampFromDays(days);
+      if (!until) return setAdminSelectedMsg("Pick a duration > 0 days.", true);
+      await targetRef.set({ chatSuspendedUntil: until, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge:true });
+      await writeModLog({ action:"chatSuspend", targetType:t.type, targetKey:t.key, targetEmail:t.data.email||t.data.emailLower||"", days, reason: reason || "" });
+      setAdminSelectedMsg("Chat suspension applied.");
+    }
+
+    if (action === "siteSuspend"){
+      const until = untilTimestampFromDays(days);
+      if (!until) return setAdminSelectedMsg("Pick a duration > 0 days.", true);
+      await targetRef.set({ siteSuspendedUntil: until, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge:true });
+      await writeModLog({ action:"siteSuspend", targetType:t.type, targetKey:t.key, targetEmail:t.data.email||t.data.emailLower||"", days, reason: reason || "" });
+      setAdminSelectedMsg("Site suspension applied.");
+    }
+
+    if (action === "disable"){
+      await targetRef.set({ disabled:true, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge:true });
+      await writeModLog({ action:"disable", targetType:t.type, targetKey:t.key, targetEmail:t.data.email||t.data.emailLower||"", days:0, reason: reason || "" });
+      setAdminSelectedMsg("Account disabled.");
+    }
+
+    if (action === "unsuspend"){
+      await targetRef.set({
+        chatSuspendedUntil: firebase.firestore.FieldValue.delete(),
+        siteSuspendedUntil: firebase.firestore.FieldValue.delete(),
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      }, { merge:true });
+      await writeModLog({ action:"unsuspend", targetType:t.type, targetKey:t.key, targetEmail:t.data.email||t.data.emailLower||"", days:0, reason: reason || "" });
+      setAdminSelectedMsg("Suspensions removed.");
+    }
+
+    await loadAdminLists();
+    await loadTopLinks();
+    await loadLogs();
+  }catch(e){
+    console.error(e);
+    setAdminSelectedMsg("Action failed. Check console.", true);
+  }finally{
+    hideLoader();
+  }
+}
+$("btnApplyMod").addEventListener("click", applyModeration);
+
+async function loadLogs(){
+  if (!isAdmin()) return;
+  const box = $("adminLogs");
+  box.innerHTML = `<div class="muted small">Loading...</div>`;
+  try{
+    const snap = await db.collection("modLogs").orderBy("ts","desc").limit(50).get();
+    box.innerHTML = "";
+    if (snap.empty){
+      box.innerHTML = `<div class="muted small">No logs yet.</div>`;
+      return;
+    }
+    snap.forEach(doc => {
+      const d = doc.data() || {};
+      const t = d.ts?.toDate ? d.ts.toDate().toLocaleString() : "";
+      const row = document.createElement("div");
+      row.className = "item";
+      row.innerHTML = `
+        <div style="min-width:0;">
+          <div class="title">${escapeHtml(d.action || "action")} <span class="pill">${escapeHtml(t)}</span></div>
+          <div class="desc">
+            target: ${escapeHtml(d.targetEmail || d.targetKey || "")} • actor: ${escapeHtml(d.actorAlias || d.actorEmail || "")}
+            ${d.days ? (" • days: " + escapeHtml(d.days)) : ""}
+          </div>
+          ${d.reason ? `<div class="desc">reason: ${escapeHtml(d.reason)}</div>` : ""}
+        </div>
+      `;
+      box.appendChild(row);
+    });
+  }catch(e){
+    console.error(e);
+    box.innerHTML = `<div class="muted small">Failed to load logs.</div>`;
+  }
+}
+$("btnRefreshLogs").addEventListener("click", loadLogs);
+
+$("btnClearLogs").addEventListener("click", async () => {
+  if (!isAdmin()) return;
+  if (!confirm("Clear ALL mod logs? This cannot be undone.")) return;
+  showLoader("Clearing logs...");
+  try{
+    const snap = await db.collection("modLogs").limit(500).get();
+    const batch = db.batch();
+    snap.docs.forEach(d => batch.delete(d.ref));
+    await batch.commit();
+    await writeModLog({ action:"clearLogs", targetType:"modLogs", targetKey:"*", targetEmail:"", days:0, reason:"cleared all logs" });
+    await loadLogs();
+  }catch(e){
+    console.error(e);
+    alert("Failed to clear logs (may need multiple clears if >500).");
+  }finally{
+    hideLoader();
+  }
+});
+
+/* ===== Auth state ===== */
+auth.onAuthStateChanged(async (user) => {
+  currentUser = user || null;
+  currentUserData = null;
+
+  if (unsubUserDoc){ try{ unsubUserDoc(); }catch{} unsubUserDoc = null; }
+
+  if (!user){
+    $("authCard").classList.remove("hidden");
+    $("appShell").classList.add("hidden");
+    $("btnSignOut").classList.add("hidden");
+    $("chipUser").textContent = "Signed out";
+    showView("homeView");
+    $("warnOverlay").style.display = "none";
+    return;
+  }
+
+  showLoader("Checking access...");
+  try{
+    const emailLower = (user.email || "").toLowerCase();
+    if (!emailLower){
+      setAuthMsg("Your account has no email. Not supported.", true);
+      await auth.signOut();
+      return;
+    }
+
+    const allow = await getAllowlist(emailLower);
+    if (!allow.exists){
+      alert("Not authorized. Contact an admin.");
+      await auth.signOut();
+      return;
+    }
+    if (allow.data?.disabled){
+      alert("Your account is disabled.");
+      await auth.signOut();
+      return;
+    }
+
+    if (allow.data?.pendingWarning){
+      db.collection("users").doc(user.uid).set({ activeWarning: allow.data.pendingWarning }, { merge:true }).catch(()=>{});
+      allow.ref.set({ pendingWarning: firebase.firestore.FieldValue.delete() }, { merge:true }).catch(()=>{});
+    }
+
+    const data = await ensureUserDoc(user, allow.data);
+
+    currentUserData = { ...(data||{}) };
+    currentUserData.role = (currentUserData.role || allow.data.role || "member").toLowerCase();
+    currentUserData.alias = (currentUserData.alias || allow.data.alias || (user.email||"user").split("@")[0]).toLowerCase();
+    currentUserData.quickRedirect = currentUserData.quickRedirect || allow.data.quickRedirect || "";
+    currentUserData.redirectKey = (currentUserData.redirectKey || allow.data.redirectKey || "").toLowerCase();
+
+    unsubUserDoc = db.collection("users").doc(user.uid).onSnapshot(async (snap) => {
+      if (!snap.exists) return;
+      const d = snap.data() || {};
+      currentUserData = { ...(currentUserData||{}), ...(d||{}) };
+      currentUserData.role = (currentUserData.role || "member").toLowerCase();
+      currentUserData.alias = (currentUserData.alias || (user.email||"user").split("@")[0]).toLowerCase();
+
+      $("displayEmail").textContent = user.email || "";
+      $("displayAlias").textContent = currentUserData.alias || "";
+      $("displayRole").textContent = currentUserData.role || "member";
+      $("chipUser").textContent = `${currentUserData.alias} • ${currentUserData.role}`;
+
+      $("aliasInput").value = currentUserData.alias || "";
+      $("redirectUrlInput").value = currentUserData.quickRedirect || "";
+      $("redirectKeyInput").value = currentUserData.redirectKey || "";
+
+      updateRoleUI();
+      await enforceUserState(currentUserData);
+    });
+
+    $("authCard").classList.add("hidden");
+    $("appShell").classList.remove("hidden");
+    $("btnSignOut").classList.remove("hidden");
+    $("chipUser").textContent = `${currentUserData.alias} • ${currentUserData.role}`;
+
+    await loadCategories();
+    await loadTopLinks();
+
+    if (isAdmin()){
+      await loadAdminLists();
+      $("adminSelectedCard").classList.add("hidden");
+      setAdminSelectedMsg("Select a user from the lists above.");
+    }
+
+    updateRoleUI();
+
+    // Init staff tools if permitted
+    if (roleRank(currentUserData.role) >= 3){
+      window.__staffStarted = false;
+      startStaffTools();
+    } else {
+      window.__staffStarted = false;
+    }
+
+    showView("homeView");
+  }catch(e){
+    console.error(e);
+    setAuthMsg("Error loading your account. Check console.", true);
+    try{ await auth.signOut(); }catch{}
+  }finally{
+    hideLoader();
+  }
+});
+</script>
+</body>
+</html>
